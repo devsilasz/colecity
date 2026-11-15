@@ -1,0 +1,21 @@
+# Registro de uso de IA
+
+A IA foi usada como copiloto no desenvolvimento do backend, como permitem as regras da Global Solution. Todo o código gerado foi revisado, executado e testado pela equipe, e cada integrante sabe explicar cada parte.
+
+**Ferramenta:** Claude Code (Anthropic)
+
+## Prompt principal
+
+> Você é um engenheiro de software sênior cursando o terceiro ano de faculdade e está fazendo a GS CitizenTech (3ES Fev, FIAP 2026). Sua responsabilidade é a demanda de C# e SOA. Nossa solução é o Colecity, descrito em "colecity (cidade coletiva).txt" e em "Colecity_Posicionamento_Estrategico.pdf". Toque esta tarefa para tirar 10, fazendo somente o necessário para cumprir os critérios das duas matérias.
+
+## Como a IA foi usada
+
+| Etapa | O que foi pedido à IA | O que a equipe validou |
+|-------|-----------------------|------------------------|
+| Leitura dos requisitos | Extrair dos PDFs os critérios de avaliação de C# (POO, Web API, EF Core + LINQ, Async, Qualidade) e de SOA (Domínio, Banco, Migrações, Documentação, Testes) | Conferência com o enunciado oficial |
+| Arquitetura | Propor uma arquitetura em camadas que atendesse às duas disciplinas com um único backend | Escolha de SQLite para rodar em qualquer máquina sem instalação |
+| Domínio | Modelar ocorrências por módulo com herança e polimorfismo, e as regras do abaixo-assinado | Limites de apoios e pesos de urgência por módulo |
+| Integração SPTrans | Implementar o cliente da API Olho Vivo (autenticação por cookie) e um cliente simulado com o mesmo contrato | Formato dos campos (`cl`, `lt`, `tl`, `sl`, `tp`, `ts`, `hr`, `vs`) conforme a documentação da SPTrans |
+| Depuração | Corrigir consultas LINQ que o EF Core não conseguia traduzir no painel de indicadores (`GroupBy` com navegação e `OrderBy` sobre record construído) | Teste manual do endpoint e teste automatizado |
+| Testes | Criar testes de domínio, de serviço (SQLite em memória com as migrations reais), do cliente HTTP e de integração da API | Execução de `dotnet test` (40 aprovados) |
+| Documentação | Escrever README com Ficha da CitizenTech, instruções e mapeamento dos critérios | Revisão do texto e preenchimento dos integrantes |

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Colecity.Api/Colecity.Api.csproj" />
+    <Project Path="src/Colecity.Application/Colecity.Application.csproj" />
+    <Project Path="src/Colecity.Domain/Colecity.Domain.csproj" />
+    <Project Path="src/Colecity.Infrastructure/Colecity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Colecity.Tests/Colecity.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,9 @@
+route_id,service_id,trip_id,trip_headsign,direction_id,shape_id
+8700-10,USD,8700-10-0,Pça. Ramos,0,8700-ida
+8700-10,USD,8700-10-1,Pq. Continental,1,8700-volta
+875A-10,USD,875A-10-0,Metrô Butantã,0,875A-ida
+875A-10,USD,875A-10-1,Perdizes,1,875A-volta
+5119-10,USD,5119-10-0,Metrô Santa Cruz,0,5119-ida
+5119-10,USD,5119-10-1,Term. Capelinha,1,5119-volta
+3301-10,USD,3301-10-0,Metrô Itaquera,0,3301-ida
+3301-10,USD,3301-10-1,Cid. Tiradentes,1,3301-volta

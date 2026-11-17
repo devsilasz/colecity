@@ -1,101 +1,113 @@
+using Colecity.Api.Infra;
 using Colecity.Application.Dtos;
 using Colecity.Application.Services;
 using Colecity.Domain.Enums;
-using Colecity.Domain.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Colecity.Api.Controllers;
 
-/// <summary>Relatos de problemas urbanos, abaixo-assinados e comentários.</summary>
+/// <summary>Consulta (RN-CSL), registro, edição e ciclo de vida (RN-REG, RN-ACO) das ocorrências.</summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1")]
 [Produces("application/json")]
 public class OcorrenciasController(IOcorrenciaService ocorrencias) : ControllerBase
 {
-    /// <summary>Lista ocorrências com filtros e paginação, das mais apoiadas para as menos apoiadas.</summary>
-    /// <param name="modulo">Transporte, Energia, Agua ou Vias.</param>
-    /// <param name="status">Aberta, AbaixoAssinado ou Resolvida.</param>
-    /// <param name="bairro">Parte do nome do bairro.</param>
-    /// <param name="codigoLinha">Letreiro da linha de ônibus, ex.: 6072-10.</param>
-    /// <param name="pagina">Página, começando em 1.</param>
-    /// <param name="tamanhoPagina">Itens por página (máximo 100).</param>
-    /// <param name="ct">Token de cancelamento.</param>
-    [HttpGet]
-    [ProducesResponseType<PaginaResponse<OcorrenciaResponse>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> Listar(
-        [FromQuery] Modulo? modulo, [FromQuery] StatusOcorrencia? status, [FromQuery] string? bairro,
-        [FromQuery] string? codigoLinha, [FromQuery] int pagina = 1, [FromQuery] int tamanhoPagina = 20,
-        CancellationToken ct = default) =>
-        Ok(await ocorrencias.ListarAsync(new FiltroOcorrencias(modulo, status, bairro, codigoLinha, pagina, tamanhoPagina), ct));
+    /// <summary>Categorias e tipos de ocorrência (RN-REG-05).</summary>
+    [HttpGet("categorias")]
+    [ProducesResponseType<IReadOnlyList<CategoriaResponse>>(StatusCodes.Status200OK)]
+    public IActionResult Categorias() => Ok(ocorrencias.ListarCategorias());
 
-    /// <summary>Obtém uma ocorrência pelo identificador.</summary>
-    [HttpGet("{id:guid}")]
-    [ProducesResponseType<OcorrenciaResponse>(StatusCodes.Status200OK)]
+    /// <summary>Lista ocorrências, por padrão as não concluídas, ordenadas por participação e atividade.</summary>
+    /// <param name="categoria">Repetível. Ex.: AGUA.</param>
+    /// <param name="estado">Repetível. Padrão: ABERTA e EM_ACOMPANHAMENTO.</param>
+    /// <param name="lat">Latitude do centro (junto com lng e raioKm).</param>
+    /// <param name="lng">Longitude do centro.</param>
+    /// <param name="raioKm">1, 5 ou 10.</param>
+    /// <param name="linha">Ocorrências de uma linha de ônibus. Ex.: 8700-10.</param>
+    /// <param name="page">Página, a partir de 1.</param>
+    /// <param name="pageSize">Itens por página (máximo 50).</param>
+    /// <param name="ct">Token de cancelamento.</param>
+    [HttpGet("ocorrencias")]
+    [ProducesResponseType<Pagina<OcorrenciaResumoResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Listar(
+        [FromQuery] Categoria[]? categoria, [FromQuery] EstadoOcorrencia[]? estado,
+        [FromQuery] double? lat, [FromQuery] double? lng, [FromQuery] int? raioKm, [FromQuery] string? linha,
+        [FromQuery] int? page, [FromQuery] int? pageSize, CancellationToken ct) =>
+        Ok(await ocorrencias.ListarAsync(new ConsultaOcorrencias(categoria, estado, lat, lng, raioKm, linha, page, pageSize), ct));
+
+    /// <summary>Detalhe da ocorrência. Oculta pela moderação → 404, exceto para o autor.</summary>
+    [HttpGet("ocorrencias/{id:guid}")]
+    [ProducesResponseType<OcorrenciaDetalheResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Obter(Guid id, CancellationToken ct) => Ok(await ocorrencias.ObterAsync(id, ct));
 
-    /// <summary>Registra uma ocorrência. O autor já entra como o primeiro apoiador.</summary>
-    [HttpPost]
-    [ProducesResponseType<OcorrenciaResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    /// <summary>Linha do tempo automática: criação, estados, marcos de afetados e desvios (RN-ACO-03).</summary>
+    [HttpGet("ocorrencias/{id:guid}/linha-do-tempo")]
+    [ProducesResponseType<IReadOnlyList<EventoLinhaDoTempoResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> LinhaDoTempo(Guid id, CancellationToken ct) => Ok(await ocorrencias.LinhaDoTempoAsync(id, ct));
+
+    /// <summary>Nomes públicos de quem apoia (RN-PAR-06). Em Segurança, a lista é sempre vazia (RN-PAR-07).</summary>
+    [HttpGet("ocorrencias/{id:guid}/apoiadores")]
+    [ProducesResponseType<Pagina<ApoiadorResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Apoiadores(Guid id, [FromQuery] int? page, [FromQuery] int? pageSize, CancellationToken ct) =>
+        Ok(await ocorrencias.ApoiadoresAsync(id, page, pageSize, ct));
+
+    /// <summary>Até 5 ocorrências parecidas, sugeridas antes de criar uma nova (RN-SEM).</summary>
+    /// <response code="422">LOCALIZACAO_FORA_DO_MUNICIPIO, TIPO_INVALIDO_PARA_CATEGORIA ou CAMPO_OBRIGATORIO.</response>
+    [HttpPost("ocorrencias/semelhantes")]
+    [Authorize(Policy = Autenticacao.PoliticaUsuario)]
+    [ProducesResponseType<IReadOnlyList<OcorrenciaSemelhanteResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Criar(CriarOcorrenciaRequest request, CancellationToken ct)
+    public async Task<IActionResult> Semelhantes(SemelhantesRequest request, CancellationToken ct) =>
+        Ok(await ocorrencias.SemelhantesAsync(request, ct));
+
+    /// <summary>Registra uma ocorrência. Estado ABERTA, título gerado e autor contado como afetado.</summary>
+    /// <response code="422">CAMPO_OBRIGATORIO, DESCRICAO_TAMANHO_INVALIDO, TIPO_INVALIDO_PARA_CATEGORIA,
+    /// LOCALIZACAO_FORA_DO_MUNICIPIO, LINHA_INVALIDA, DATA_OCORRIDO_INVALIDA, FOTO_INVALIDA ou LIMITE_FOTOS_EXCEDIDO.</response>
+    [HttpPost("ocorrencias")]
+    [Authorize(Policy = Autenticacao.PoliticaUsuario)]
+    [Idempotente]
+    [ProducesResponseType<OcorrenciaDetalheResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Registrar(RegistrarOcorrenciaRequest request, CancellationToken ct)
     {
-        var ocorrencia = await ocorrencias.CriarAsync(request, ct);
+        var ocorrencia = await ocorrencias.RegistrarAsync(request, ct);
         return CreatedAtAction(nameof(Obter), new { id = ocorrencia.Id }, ocorrencia);
     }
 
-    /// <summary>Edita título e descrição. Apenas o autor pode editar.</summary>
-    [HttpPut("{id:guid}")]
-    [ProducesResponseType<OcorrenciaResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    /// <summary>Edita descrição e fotos. Só o autor e só antes de concluir (RN-REG-09).</summary>
+    /// <response code="403">SOMENTE_AUTOR.</response>
+    /// <response code="409">OCORRENCIA_CONCLUIDA.</response>
+    [HttpPatch("ocorrencias/{id:guid}")]
+    [Authorize(Policy = Autenticacao.PoliticaUsuario)]
+    [ProducesResponseType<OcorrenciaDetalheResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Editar(Guid id, EditarOcorrenciaRequest request, CancellationToken ct) =>
         Ok(await ocorrencias.EditarAsync(id, request, ct));
 
-    /// <summary>Exclui a ocorrência. Só é permitido ao autor e enquanto ninguém mais a apoiou.</summary>
-    [HttpDelete("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Excluir(Guid id, [FromQuery] Guid usuarioId, CancellationToken ct)
-    {
-        await ocorrencias.ExcluirAsync(id, usuarioId, ct);
-        return NoContent();
-    }
+    /// <summary>O autor conclui, com feedback e fotos opcionais (RN-ACO-04, 05).</summary>
+    /// <response code="403">SOMENTE_AUTOR.</response>
+    /// <response code="409">OCORRENCIA_CONCLUIDA.</response>
+    [HttpPost("ocorrencias/{id:guid}/conclusao")]
+    [Authorize(Policy = Autenticacao.PoliticaUsuario)]
+    [ProducesResponseType<OcorrenciaDetalheResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Concluir(Guid id, ConcluirOcorrenciaRequest request, CancellationToken ct) =>
+        Ok(await ocorrencias.ConcluirAsync(id, request, ct));
 
-    /// <summary>Assina o abaixo-assinado da ocorrência. Ao atingir o mínimo do módulo, o status muda para AbaixoAssinado.</summary>
-    [HttpPost("{id:guid}/apoios")]
-    [ProducesResponseType<OcorrenciaResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    /// <summary>Um afetado reabre em até 7 dias; volta para EM_ACOMPANHAMENTO (RN-ACO-07).</summary>
+    /// <response code="403">SOMENTE_AFETADO.</response>
+    /// <response code="422">PRAZO_REABERTURA_EXPIRADO ou REABERTURA_NAO_PERMITIDA.</response>
+    [HttpPost("ocorrencias/{id:guid}/reabertura")]
+    [Authorize(Policy = Autenticacao.PoliticaUsuario)]
+    [ProducesResponseType<OcorrenciaDetalheResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Apoiar(Guid id, AcaoUsuarioRequest request, CancellationToken ct) =>
-        Ok(await ocorrencias.ApoiarAsync(id, request.UsuarioId, ct));
-
-    /// <summary>Um apoiador confirma que o problema foi resolvido.</summary>
-    [HttpPost("{id:guid}/resolucao")]
-    [ProducesResponseType<OcorrenciaResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> ConfirmarResolucao(Guid id, AcaoUsuarioRequest request, CancellationToken ct) =>
-        Ok(await ocorrencias.ConfirmarResolucaoAsync(id, request.UsuarioId, ct));
-
-    /// <summary>Lista os comentários da ocorrência em ordem cronológica.</summary>
-    [HttpGet("{id:guid}/comentarios")]
-    [ProducesResponseType<IReadOnlyList<ComentarioResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> ListarComentarios(Guid id, CancellationToken ct) =>
-        Ok(await ocorrencias.ListarComentariosAsync(id, ct));
-
-    /// <summary>Adiciona um comentário à ocorrência.</summary>
-    [HttpPost("{id:guid}/comentarios")]
-    [ProducesResponseType<ComentarioResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Comentar(Guid id, ComentarRequest request, CancellationToken ct)
-    {
-        var comentario = await ocorrencias.ComentarAsync(id, request, ct);
-        return CreatedAtAction(nameof(ListarComentarios), new { id }, comentario);
-    }
+    public async Task<IActionResult> Reabrir(Guid id, CancellationToken ct) => Ok(await ocorrencias.ReabrirAsync(id, ct));
 }

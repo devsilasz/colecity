@@ -31,7 +31,7 @@ public class OlhoVivoSpTransClient(HttpClient http, IOptions<SpTransOptions> opt
         var posicao = await GetAutenticadoAsync<PosicaoOlhoVivo>($"Posicao/Linha?codigoLinha={codigoLinha}", ct);
 
         var veiculos = posicao?.Veiculos?
-            .Select(v => new VeiculoSpTrans(v.Prefixo.ToString(), v.Acessivel, v.Latitude, v.Longitude))
+            .Select(v => new VeiculoSpTrans(v.Prefixo.ToString(), v.Acessivel, v.Latitude, v.Longitude, v.AtualizadoEm?.ToUniversalTime()))
             .ToList() ?? [];
         return new PosicaoLinhaSpTrans(posicao?.Horario ?? "", veiculos);
     }
@@ -85,6 +85,7 @@ public class OlhoVivoSpTransClient(HttpClient http, IOptions<SpTransOptions> opt
     private sealed record VeiculoOlhoVivo(
         [property: JsonPropertyName("p")] JsonElement Prefixo,
         [property: JsonPropertyName("a")] bool Acessivel,
+        [property: JsonPropertyName("ta")] DateTime? AtualizadoEm,
         [property: JsonPropertyName("py")] double Latitude,
         [property: JsonPropertyName("px")] double Longitude);
 }

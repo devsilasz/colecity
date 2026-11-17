@@ -1,101 +1,202 @@
+using Colecity.Application.Abstractions;
 using Colecity.Application.Dtos;
-using Colecity.Application.Exceptions;
+using Colecity.Domain;
 using Colecity.Domain.Entities;
+using Colecity.Domain.Enums;
+using Colecity.Domain.Exceptions;
+using Colecity.Domain.Geo;
 using Colecity.Domain.Repositories;
 
 namespace Colecity.Application.Services;
 
+public interface IOcorrenciaService
+{
+    IReadOnlyList<CategoriaResponse> ListarCategorias();
+    Task<Pagina<OcorrenciaResumoResponse>> ListarAsync(ConsultaOcorrencias consulta, CancellationToken ct = default);
+    Task<OcorrenciaDetalheResponse> ObterAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<EventoLinhaDoTempoResponse>> LinhaDoTempoAsync(Guid id, CancellationToken ct = default);
+    Task<Pagina<ApoiadorResponse>> ApoiadoresAsync(Guid id, int? page, int? pageSize, CancellationToken ct = default);
+    Task<IReadOnlyList<OcorrenciaSemelhanteResponse>> SemelhantesAsync(SemelhantesRequest request, CancellationToken ct = default);
+    Task<OcorrenciaDetalheResponse> RegistrarAsync(RegistrarOcorrenciaRequest request, CancellationToken ct = default);
+    Task<OcorrenciaDetalheResponse> EditarAsync(Guid id, EditarOcorrenciaRequest request, CancellationToken ct = default);
+    Task<OcorrenciaDetalheResponse> ConcluirAsync(Guid id, ConcluirOcorrenciaRequest request, CancellationToken ct = default);
+    Task<OcorrenciaDetalheResponse> ReabrirAsync(Guid id, CancellationToken ct = default);
+}
+
+/// <summary>Parâmetros de <c>GET /ocorrencias</c> como chegam na requisição.</summary>
+public sealed record ConsultaOcorrencias(
+    IReadOnlyCollection<Categoria>? Categorias,
+    IReadOnlyCollection<EstadoOcorrencia>? Estados,
+    double? Lat,
+    double? Lng,
+    int? RaioKm,
+    string? Linha,
+    int? Page,
+    int? PageSize);
+
 public class OcorrenciaService(
+    ContextoUsuario contexto,
     IOcorrenciaRepository ocorrencias,
-    IUsuarioRepository usuarios,
+    IOcorrenciaConsultas consultas,
+    ILinhaRepository linhas,
+    IGeocodificador geocodificador,
     IUnitOfWork unitOfWork,
     TimeProvider relogio) : IOcorrenciaService
 {
-    private const int TamanhoMaximoPagina = 100;
+    private static readonly int[] RaiosPermitidosKm = [1, 5, 10];
+    private static readonly EstadoOcorrencia[] EstadosPadrao = [EstadoOcorrencia.Aberta, EstadoOcorrencia.EmAcompanhamento];
 
-    public async Task<OcorrenciaResponse> CriarAsync(CriarOcorrenciaRequest request, CancellationToken ct = default)
+    private DateTime Agora => relogio.GetUtcNow().UtcDateTime;
+
+    public IReadOnlyList<CategoriaResponse> ListarCategorias() =>
+        CatalogoCategorias.Todas
+            .Select(c => new CategoriaResponse(c.Categoria, c.Nome, c.Tipos.Select(t => new TipoResponse(t.Tipo, t.Nome)).ToList()))
+            .ToList();
+
+    /// <summary>Consulta aberta a visitantes (RN-CSL-01), com filtros de RN-CSL-03 e RN-CSL-04.</summary>
+    public async Task<Pagina<OcorrenciaResumoResponse>> ListarAsync(ConsultaOcorrencias consulta, CancellationToken ct = default)
     {
-        await GarantirUsuarioExisteAsync(request.AutorId, ct);
+        var geo = new[] { consulta.Lat.HasValue, consulta.Lng.HasValue, consulta.RaioKm.HasValue };
+        if (geo.Distinct().Count() > 1)
+            throw new RequisicaoInvalidaException("Informe lat, lng e raioKm juntos.", "raioKm");
+        if (consulta.RaioKm is { } raio && !RaiosPermitidosKm.Contains(raio))
+            throw new RequisicaoInvalidaException("raioKm deve ser 1, 5 ou 10.", "raioKm");
 
-        var ocorrencia = OcorrenciaFactory.Criar(request);
+        var (page, pageSize) = Pagina<OcorrenciaResumoResponse>.Normalizar(consulta.Page, consulta.PageSize);
+        var centro = consulta.Lat is { } lat && consulta.Lng is { } lng ? new Coordenada(lat, lng) : null;
+        var filtro = new FiltroOcorrencias(
+            consulta.Categorias ?? [],
+            consulta.Estados is { Count: > 0 } estados ? estados : EstadosPadrao,
+            centro, consulta.RaioKm, Texto.CodigoLinha(consulta.Linha), page, pageSize);
+
+        var usuario = await contexto.ObterOpcionalAsync(ct);
+        return await consultas.ListarAsync(filtro, usuario?.Id, ct);
+    }
+
+    public async Task<OcorrenciaDetalheResponse> ObterAsync(Guid id, CancellationToken ct = default)
+    {
+        var usuario = await contexto.ObterOpcionalAsync(ct);
+        return await consultas.ObterDetalheAsync(id, usuario?.Id, Agora, ct) ?? throw new NaoEncontradoException("Ocorrência");
+    }
+
+    public async Task<IReadOnlyList<EventoLinhaDoTempoResponse>> LinhaDoTempoAsync(Guid id, CancellationToken ct = default)
+    {
+        var usuario = await contexto.ObterOpcionalAsync(ct);
+        return await consultas.LinhaDoTempoAsync(id, usuario?.Id, ct) ?? throw new NaoEncontradoException("Ocorrência");
+    }
+
+    public async Task<Pagina<ApoiadorResponse>> ApoiadoresAsync(Guid id, int? page, int? pageSize, CancellationToken ct = default)
+    {
+        var (pagina, tamanho) = Pagina<ApoiadorResponse>.Normalizar(page, pageSize);
+        var usuario = await contexto.ObterOpcionalAsync(ct);
+        return await consultas.ApoiadoresAsync(id, usuario?.Id, pagina, tamanho, ct) ?? throw new NaoEncontradoException("Ocorrência");
+    }
+
+    /// <summary>Sugestões durante o registro (RN-SEM). Segurança nunca sugere (RN-SEM-04).</summary>
+    public async Task<IReadOnlyList<OcorrenciaSemelhanteResponse>> SemelhantesAsync(SemelhantesRequest request, CancellationToken ct = default)
+    {
+        var usuario = await contexto.ObterObrigatorioAsync(ct);
+        new CamposObrigatorios()
+            .Exigir(request.Categoria, "categoria")
+            .Exigir(request.Tipo, "tipo")
+            .Exigir(request.Localizacao, "localizacao")
+            .Validar();
+
+        var (categoria, tipo) = (request.Categoria!.Value, request.Tipo!.Value);
+        if (!CatalogoCategorias.Pertence(tipo, categoria))
+            throw new DomainException(CodigosErro.TipoInvalidoParaCategoria, "O tipo informado não pertence à categoria.", "tipo");
+        var local = GarantirNoMunicipio(request.Localizacao!);
+
+        if (categoria == Categoria.Seguranca)
+            return [];
+
+        var criterio = new CriterioSemelhantes(categoria, tipo, local, Texto.CodigoLinha(request.Linha));
+        return await consultas.SemelhantesAsync(criterio, usuario.Id, Agora, ct);
+    }
+
+    /// <summary>Registro de ocorrência (RN-REG). Título por geocodificação reversa; autor vira afetado.</summary>
+    public async Task<OcorrenciaDetalheResponse> RegistrarAsync(RegistrarOcorrenciaRequest request, CancellationToken ct = default)
+    {
+        var autor = await contexto.ObterObrigatorioAsync(ct);
+        new CamposObrigatorios()
+            .Exigir(request.Categoria, "categoria")
+            .Exigir(request.Tipo, "tipo")
+            .Exigir(request.Descricao, "descricao")
+            .Exigir(request.Localizacao, "localizacao")
+            .Validar();
+
+        var categoria = request.Categoria!.Value;
+        var local = GarantirNoMunicipio(request.Localizacao!);
+        var linha = await ResolverLinhaAsync(request.Linha, categoria, ct);
+        var endereco = await geocodificador.ObterEnderecoAsync(local, ct);
+
+        var ocorrencia = FabricaOcorrencias.Registrar(new NovaOcorrencia(
+            categoria, request.Tipo!.Value, request.Descricao!, local, endereco, autor,
+            request.Fotos.Paths() ?? [], Agora, linha,
+            request.DataHoraOcorrido is { } data ? Texto.Utc(data) : null));
+
         await ocorrencias.AdicionarAsync(ocorrencia, ct);
         await unitOfWork.SalvarAsync(ct);
-        return OcorrenciaResponse.De(ocorrencia);
+        return await DetalheAsync(ocorrencia.Id, autor.Id, ct);
     }
 
-    public async Task<OcorrenciaResponse> ObterAsync(Guid id, CancellationToken ct = default) =>
-        OcorrenciaResponse.De(await CarregarAsync(id, ct));
-
-    public async Task<PaginaResponse<OcorrenciaResponse>> ListarAsync(FiltroOcorrencias filtro, CancellationToken ct = default)
+    public async Task<OcorrenciaDetalheResponse> EditarAsync(Guid id, EditarOcorrenciaRequest request, CancellationToken ct = default)
     {
-        var normalizado = filtro with
-        {
-            Pagina = Math.Max(1, filtro.Pagina),
-            TamanhoPagina = Math.Clamp(filtro.TamanhoPagina, 1, TamanhoMaximoPagina)
-        };
-
-        var (itens, total) = await ocorrencias.ListarAsync(normalizado, ct);
-        return new PaginaResponse<OcorrenciaResponse>(
-            itens.Select(OcorrenciaResponse.De).ToList(), normalizado.Pagina, normalizado.TamanhoPagina, total);
-    }
-
-    public async Task<OcorrenciaResponse> EditarAsync(Guid id, EditarOcorrenciaRequest request, CancellationToken ct = default)
-    {
-        var ocorrencia = await CarregarAsync(id, ct);
-        ocorrencia.Editar(request.UsuarioId, request.Titulo, request.Descricao);
+        var usuario = await contexto.ObterObrigatorioAsync(ct);
+        var ocorrencia = await CarregarAsync(id, usuario.Id, ct);
+        ocorrencia.Editar(usuario, request.Descricao, request.Fotos.Paths());
         await unitOfWork.SalvarAsync(ct);
-        return OcorrenciaResponse.De(ocorrencia);
+        return await DetalheAsync(id, usuario.Id, ct);
     }
 
-    public async Task ExcluirAsync(Guid id, Guid usuarioId, CancellationToken ct = default)
+    public async Task<OcorrenciaDetalheResponse> ConcluirAsync(Guid id, ConcluirOcorrenciaRequest request, CancellationToken ct = default)
     {
-        var ocorrencia = await CarregarAsync(id, ct);
-        ocorrencia.GarantirQuePodeSerExcluidaPor(usuarioId);
-        ocorrencias.Remover(ocorrencia);
+        var usuario = await contexto.ObterObrigatorioAsync(ct);
+        var ocorrencia = await CarregarAsync(id, usuario.Id, ct);
+        ocorrencia.Concluir(usuario, request.Feedback, request.Fotos.Paths(), Agora);
         await unitOfWork.SalvarAsync(ct);
+        return await DetalheAsync(id, usuario.Id, ct);
     }
 
-    public async Task<OcorrenciaResponse> ApoiarAsync(Guid id, Guid usuarioId, CancellationToken ct = default)
+    public async Task<OcorrenciaDetalheResponse> ReabrirAsync(Guid id, CancellationToken ct = default)
     {
-        await GarantirUsuarioExisteAsync(usuarioId, ct);
-        var ocorrencia = await CarregarAsync(id, ct);
-        ocorrencia.Apoiar(usuarioId);
+        var usuario = await contexto.ObterObrigatorioAsync(ct);
+        var ocorrencia = await CarregarAsync(id, usuario.Id, ct);
+        ocorrencia.Reabrir(usuario, Agora);
         await unitOfWork.SalvarAsync(ct);
-        return OcorrenciaResponse.De(ocorrencia);
+        return await DetalheAsync(id, usuario.Id, ct);
     }
 
-    public async Task<OcorrenciaResponse> ConfirmarResolucaoAsync(Guid id, Guid usuarioId, CancellationToken ct = default)
+    private async Task<Ocorrencia> CarregarAsync(Guid id, Guid usuarioId, CancellationToken ct)
     {
-        var ocorrencia = await CarregarAsync(id, ct);
-        ocorrencia.ConfirmarResolucao(usuarioId, relogio.GetUtcNow().UtcDateTime);
-        await unitOfWork.SalvarAsync(ct);
-        return OcorrenciaResponse.De(ocorrencia);
+        var ocorrencia = await ocorrencias.ObterAsync(id, ct);
+        // Conteúdo oculto pela moderação só é visível para o autor (doc 10, seção 4.3).
+        if (ocorrencia is null || ocorrencia.Oculta && !ocorrencia.EhAutor(usuarioId))
+            throw new NaoEncontradoException("Ocorrência");
+        return ocorrencia;
     }
 
-    public async Task<ComentarioResponse> ComentarAsync(Guid id, ComentarRequest request, CancellationToken ct = default)
+    private async Task<OcorrenciaDetalheResponse> DetalheAsync(Guid id, Guid usuarioId, CancellationToken ct) =>
+        await consultas.ObterDetalheAsync(id, usuarioId, Agora, ct) ?? throw new NaoEncontradoException("Ocorrência");
+
+    private async Task<LinhaReferencia?> ResolverLinhaAsync(string? codigo, Categoria categoria, CancellationToken ct)
     {
-        await GarantirUsuarioExisteAsync(request.UsuarioId, ct);
-        var ocorrencia = await CarregarAsync(id, ct);
-        var comentario = ocorrencia.Comentar(request.UsuarioId, request.Texto);
-        await unitOfWork.SalvarAsync(ct);
-        return ComentarioResponse.De(comentario);
+        if (Texto.CodigoLinha(codigo) is not { } normalizado)
+            return null;
+        if (categoria != Categoria.Transporte)
+            throw new DomainException(CodigosErro.LinhaInvalida, "A linha só pode ser informada em ocorrências de Transporte.", "linha");
+
+        var linha = await linhas.ObterAsync(normalizado, ct)
+            ?? throw new DomainException(CodigosErro.LinhaInvalida, "Linha não encontrada no GTFS da SPTrans.", "linha");
+        return new LinhaReferencia(linha.Codigo, linha.Nome);
     }
 
-    public async Task<IReadOnlyList<ComentarioResponse>> ListarComentariosAsync(Guid id, CancellationToken ct = default)
+    private static Coordenada GarantirNoMunicipio(CoordenadaDto dto)
     {
-        var ocorrencia = await CarregarAsync(id, ct);
-        return ocorrencia.Comentarios
-            .OrderBy(c => c.CriadoEm)
-            .Select(ComentarioResponse.De)
-            .ToList();
-    }
-
-    private async Task<Ocorrencia> CarregarAsync(Guid id, CancellationToken ct) =>
-        await ocorrencias.ObterPorIdAsync(id, ct) ?? throw new RecursoNaoEncontradoException("Ocorrência", id);
-
-    private async Task GarantirUsuarioExisteAsync(Guid usuarioId, CancellationToken ct)
-    {
-        if (!await usuarios.ExisteAsync(usuarioId, ct))
-            throw new RecursoNaoEncontradoException("Usuário", usuarioId);
+        var local = dto.ParaDominio();
+        if (!MunicipioSaoPaulo.Contem(local))
+            throw new DomainException(CodigosErro.LocalizacaoForaDoMunicipio,
+                "Por enquanto o Colecity funciona apenas na cidade de São Paulo.", "localizacao");
+        return local;
     }
 }

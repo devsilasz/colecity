@@ -17,7 +17,7 @@ Use apenas a pasta `docs/` como referência de requisitos.
 ## Situação
 - Testing: entregue/fechado no Azure DevOps (projeto RM559094/Colecity). Não criar nem editar itens lá.
 - Mobile: próximo trabalho. Entrega até 19/11 23h55: repositório GitHub com app Expo funcional, README (Ficha da CitizenTech, como rodar, prints, nome e RM dos integrantes) e link de vídeo de até 3 min. Rubrica: telas e navegação, consumo de dados, banco de dados, acessibilidade, aderência ao problema, documentação.
-- API de domínio (C#, Silas) ainda não existe: o app deve funcionar com mock seguindo o contrato do doc 10, trocável pela API real.
+- API de domínio (C#, Silas) implementada em `backend/` seguindo o doc 10 (ver `backend/README.md`). O app continua com mock até o BFF existir; o mock segue o mesmo contrato.
 
 ## Regras do app (resumo do doc 09)
 - Expo SDK mais recente, TypeScript sem `any`, Expo Router, Context API, hooks customizados, Axios com interceptor, TanStack Query (persistido no AsyncStorage), formulário de registro gerado por JSON, tema claro/escuro, acessibilidade.

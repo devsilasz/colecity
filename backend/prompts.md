@@ -19,3 +19,18 @@ A IA foi usada como copiloto no desenvolvimento do backend, como permitem as reg
 | Depuração | Corrigir consultas LINQ que o EF Core não conseguia traduzir no painel de indicadores (`GroupBy` com navegação e `OrderBy` sobre record construído) | Teste manual do endpoint e teste automatizado |
 | Testes | Criar testes de domínio, de serviço (SQLite em memória com as migrations reais), do cliente HTTP e de integração da API | Execução de `dotnet test` (40 aprovados) |
 | Documentação | Escrever README com Ficha da CitizenTech, instruções e mapeamento dos critérios | Revisão do texto e preenchimento dos integrantes |
+
+## Segunda iteração: adequação ao contrato do time
+
+> Neste mesmo workspace, rodei um git pull origin main, e meu colega de grupo comentou que talvez não esteja 100% condizente com a doc. Ele mandou o mobile dele também, mas entendo que o melhor seria adaptarmos nosso backend aqui, correto? Induzindo nossa matéria de SOA e C# para um 10.
+>
+> Então vamos mexer no nosso backend C#: adapte conforme a doc e tudo, e mesmo assim tiremos 10.
+
+| Etapa | O que foi pedido à IA | O que a equipe validou |
+|-------|-----------------------|------------------------|
+| Análise de aderência | Comparar o backend com os docs 07, 08 e 10 e com os tipos do app (`mobile/src/types`) | Lista de divergências: rotas, autenticação BFF → domínio, 7 categorias, afetado x apoio, estados, erros com `code` |
+| Domínio | Reescrever o domínio seguindo as regras RN-XXX do doc 07, com a política de cada categoria por polimorfismo | Regras conferidas uma a uma contra o doc 07 |
+| Contrato | Implementar os endpoints, modelos, enums `UPPER_SNAKE_CASE`, paginação e Problem Details do doc 10 | Respostas comparadas com os exemplos do doc 10 e com o mock do app |
+| Integrações | Geocodificação (Nominatim), amostra de GTFS, Olho Vivo com cache, outbox de eventos para o BFF | Decisão de usar dados simulados por padrão, com o caminho real documentado |
+| Depuração | Corrigir a instância de value object owned compartilhada entre entidades (EF gravava nulo) e as datas sem `Z` do SQLite | Testes de regressão e testes manuais com `curl` |
+| Testes | Testes de domínio, de aplicação com banco real, de tarefas e de integração HTTP | `dotnet test`: 107 aprovados |

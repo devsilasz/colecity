@@ -52,7 +52,7 @@ public class OlhoVivoSpTransClientTests
 
         var linha = Assert.Single(linhas);
         Assert.Equal("8000-10", linha.Letreiro);
-        Assert.Equal("TERM. LAPA", linha.Destino);
+        Assert.Equal("TERM. LAPA", linha.TerminalSecundario);
         Assert.Equal(3, api.Chamadas.Count);
         Assert.StartsWith("POST /v2.1/Login/Autenticar?token=token-teste", api.Chamadas[1]);
     }

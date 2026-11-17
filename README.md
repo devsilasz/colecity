@@ -49,7 +49,7 @@ O app roda completo com **dados de demonstração (mock)**, que seguem o contrat
 | Telas, navegação, regras de negócio e offline | Prontas, sobre o mock |
 | Adaptadores HTTP para o BFF (Axios + interceptor) | Prontos; ligados com `EXPO_PUBLIC_USE_MOCK=false` |
 | Firebase (Auth, Firestore, Storage, FCM) e BFF | Ainda não integrados: login, dados do usuário e upload usam o mock/AsyncStorage |
-| API de domínio (C#) | Em desenvolvimento, fora deste app |
+| API de domínio (C#) | Pronta em [`backend/`](backend/README.md), seguindo o contrato do doc 10 (entrega de C# e SOA) |
 
 ## Tecnologias
 

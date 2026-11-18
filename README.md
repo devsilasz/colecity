@@ -31,16 +31,40 @@ Projeto da **Global Solution 2026/2 · FIAP · Engenharia de Software**.
 ## Como o projeto está organizado
 
 ```
-backend/     API REST em C#/.NET 10: regras de negócio, banco (EF Core), integração SPTrans Olho Vivo
-mobile/      App React Native/Expo do cidadão: Firebase Authentication + Cloud Firestore
-push-api/    API de notificações push (Node + TypeScript, Vercel)
+mobile/      App React Native/Expo do cidadão (login pelo Firebase Authentication)
+bff/         BFF mobile (Node + TypeScript, Vercel): autenticação, repasse ao domínio, fotos e push
+backend/     API de domínio em C#/.NET 10: regras de negócio, banco (EF Core), integração SPTrans Olho Vivo
 docs/        Documentação do produto: visão, regras de negócio, arquitetura, features e casos de teste
 ```
+
+## Arquitetura
+
+```
+App (Expo) --Bearer <ID token Firebase>--> BFF (Vercel) --X-Service-Key + X-User-Id--> API C# (Render) /api/v1
+    |                                       ^   |                                                    |
+    |  Firebase Auth (login)                |   +--> Vercel Blob (fotos)                             |
+    +--> Firestore users/{uid}              +------------ POST /eventos-dominio (push) --------------+
+         (preferências, aparelhos)
+```
+
+- O **app** faz login no Firebase Authentication e chama só o BFF, levando o ID token. No Firestore ele guarda apenas os dados do próprio usuário (preferências, ocorrências silenciadas, aparelhos para push).
+- O **BFF** valida o token, repassa ao domínio com a credencial de serviço e o `uid`, guarda as fotos no Vercel Blob e envia as notificações push quando o domínio avisa um evento.
+- A **API de domínio** concentra as regras de negócio, o banco e a integração com a SPTrans. Ela nunca é chamada direto pelo app.
+
+Detalhes no [doc 08](docs/08-arquitetura.md) (arquitetura) e no [doc 10](docs/10-contrato-api-dominio.md) (contrato do domínio).
+
+| Parte | Onde roda | Endereço |
+|---|---|---|
+| API de domínio (C#) | Render, plano gratuito (Docker) | https://colecity.onrender.com/swagger |
+| BFF | Vercel, plano Hobby | https://push-api-rho.vercel.app/health |
+| App | APK pelo EAS Build | ver [`mobile/README.md`](mobile/README.md) |
+
+O plano gratuito do Render dorme após cerca de 15 minutos sem uso (a primeira chamada leva até um minuto) e recria o banco com os dados de demonstração a cada reinício.
 
 | Parte | O que é | Detalhes |
 |---|---|---|
 | **App mobile** | Porta de entrada do cidadão: explorar no mapa e em lista, registrar, participar, comentar, acompanhar, transporte ao vivo e perfil | [`mobile/README.md`](mobile/README.md) |
-| **API de push** | Valida o usuário, calcula no servidor quem deve ser avisado e envia as notificações (Android) | [`push-api/README.md`](push-api/README.md) |
+| **BFF mobile** | Única porta de entrada do app: valida o login, repassa ao domínio, guarda as fotos e envia as notificações push (Android) | [`bff/README.md`](bff/README.md) |
 | **Backend C#** | Camada de serviços: domínio de ocorrências, persistência, documentação OpenAPI, testes e cruzamento dos relatos de transporte com a SPTrans; segue o contrato do [doc 10](docs/10-contrato-api-dominio.md) | [`backend/README.md`](backend/README.md) |
 | **Documentação** | Regras de negócio, arquitetura e especificação usadas no desenvolvimento e nos testes | [`docs/README.md`](docs/README.md) |
 
@@ -60,15 +84,17 @@ docs/        Documentação do produto: visão, regras de negócio, arquitetura,
 
 ## Como rodar
 
-Cada parte roda de forma independente; o passo a passo completo está no README de cada pasta.
+O backend e o BFF já estão publicados (tabela acima): para usar o app, basta rodá-lo. O passo a passo completo, inclusive como publicar cada parte, está no README de cada pasta.
 
 ```bash
-# App mobile (Node 20+ e Expo Go no celular)
+# App mobile (Node 20+ e Expo Go no celular). Usa o BFF publicado; sem rede: EXPO_PUBLIC_DATA_SOURCE=mock
 cd mobile && npm install && npm start
 
-# Backend C# (.NET 10)
-cd backend && dotnet run --project src/Colecity.Api   # documentação em http://localhost:5080/scalar
+# Backend C# (.NET 10, ou Docker: ver backend/README.md)
+cd backend && dotnet run --project src/Colecity.Api   # documentação em http://localhost:5080/swagger
 
-# API de push (Node 20+)
-cd push-api && npm install && npx vercel dev
+# BFF (Node 20+)
+cd bff && npm install && npx vercel dev
 ```
+
+Ordem de publicação (uma vez): **Render** (backend, com `Seguranca__ServiceKey`) → **Vercel** (BFF, com `DOMINIO_URL` e a mesma chave em `DOMINIO_SERVICE_KEY`) → **Render** (`Bff__EventosUrl` apontando para o BFF) → **Firebase** (publicar `mobile/firestore.rules`) → **EAS** (build do app).

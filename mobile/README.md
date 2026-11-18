@@ -13,8 +13,8 @@ O app é uma das partes da solução Colecity, organizada em um único repositó
 | Parte | O que é |
 |---|---|
 | **`mobile/`** (este app) | Porta de entrada do cidadão: consulta, registro, participação, acompanhamento e transporte ao vivo |
-| [`push-api/`](../push-api/README.md) | API que valida o usuário, calcula os destinatários e envia as notificações push |
-| [`backend/`](../backend/README.md) | API REST em C#/.NET com as regras de negócio, banco de dados e cruzamento dos relatos de transporte com a SPTrans |
+| [`bff/`](../bff/README.md) | BFF mobile (Vercel): valida o login, repassa ao domínio, guarda as fotos e envia as notificações push |
+| [`backend/`](../backend/README.md) | API de domínio em C#/.NET (Render): regras de negócio, banco de dados e cruzamento dos relatos de transporte com a SPTrans |
 | [`docs/`](../docs/README.md) | Regras de negócio, arquitetura, features e casos de teste |
 
 Visão geral e entregas por disciplina no [README da raiz](../README.md).
@@ -42,7 +42,7 @@ _Link do vídeo: a preencher._
 - **Público:** moradores e usuários de serviços urbanos da cidade.
 - **Problema:** dificuldade de conhecer e reunir informações e manifestações sobre problemas urbanos compartilhados.
 - **Como funciona:** app em que o cidadão consulta, registra e acompanha ocorrências por categoria e localização, com participação coletiva.
-- **Tecnologias:** app React Native/Expo com Firebase (Authentication e Cloud Firestore), push pelo FCM e Expo Push com API própria na Vercel, backend em C#/.NET com dados da SPTrans (Olho Vivo).
+- **Tecnologias:** app React Native/Expo com Firebase (Authentication e Cloud Firestore para os dados do usuário), BFF em Node/TypeScript na Vercel, API de domínio em C#/.NET no Render com dados da SPTrans (Olho Vivo), push pelo FCM e Expo Push.
 - **Indicadores:** ocorrências registradas, afetados e apoios por ocorrência, ocorrências concluídas, desvios de rota detectados.
 - **ODS:** 11 (Cidades e comunidades sustentáveis), 10 (Redução das desigualdades), 9 (Indústria, inovação e infraestrutura).
 
@@ -52,16 +52,33 @@ _Link do vídeo: a preencher._
 - **Registrar:** categoria, tipo e localização; sugestão de ocorrências semelhantes; formulário gerado por JSON, com fotos.
 - **Participar:** "Também estou sendo afetado" e "Apoiar manifestação", com contagens separadas; comentários; denúncia de conteúdo.
 - **Minhas:** o que registrei, o que me afeta e o que apoio, com indicador de novidade; concluir e reabrir.
-- **Transporte ao vivo:** trajeto e ônibus da linha, "Estou neste ônibus" e detecção de desvio de rota.
+- **Transporte ao vivo:** trajeto e ônibus da linha (SPTrans), "Estou neste ônibus" e detecção de desvio de rota.
 - **Perfil:** conta, tema claro/escuro, notificações, termos e exclusão de conta.
 - **Offline:** as últimas leituras ficam em cache; registros, participações e comentários feitos sem conexão ficam "Aguardando envio" e são sincronizados depois.
+
+## Arquitetura
+
+```
+App (Expo) --Bearer <ID token Firebase>--> BFF (Vercel) --X-Service-Key + X-User-Id--> API C# (Render)
+    |                                         |                                            |
+    +--> Firebase Auth (login)                +--> Vercel Blob (fotos)                     |
+    +--> Firestore users/{uid}                ^                                            |
+         (preferências, aparelhos)            +--------- eventos de domínio (push) --------+
+```
+
+- O app faz login no **Firebase Authentication** e chama **só o BFF**, levando o ID token no header `Authorization` (interceptor do Axios). Nunca fala direto com a API de domínio.
+- O **BFF** valida o token, repassa ao domínio identificando o usuário pelo `uid` e devolve os mesmos modelos e erros do contrato ([doc 10](../docs/10-contrato-api-dominio.md)).
+- A **API de domínio** guarda ocorrências, participações, comentários, linha do tempo e denúncias, e aplica as regras de negócio.
+- O **Cloud Firestore** guarda só os dados do próprio usuário. O push nasce no domínio: quando alguém comenta, conclui, reabre ou confirma um desvio, o domínio avisa o BFF, que envia a notificação.
+
+Contrato app ↔ BFF: [doc 08, seção 11](../docs/08-arquitetura.md). Rotas usadas pelo app: [`src/services/http/rotas.ts`](src/services/http/rotas.ts).
 
 ## Tecnologias
 
 - **Expo SDK 58**, React Native 0.88, React 19, TypeScript estrito (sem `any`).
 - Expo Router (abas + pilhas), Context API, hooks customizados.
-- **Firebase JS SDK 13** (modular): Authentication e Cloud Firestore.
 - Axios com interceptors, TanStack Query com cache persistido no AsyncStorage.
+- **Firebase JS SDK 13** (modular): Authentication e Cloud Firestore.
 - react-native-maps, expo-location, expo-image-picker, expo-image-manipulator (fotos em WebP).
 
 ## Serviços Firebase
@@ -69,48 +86,32 @@ _Link do vídeo: a preencher._
 | Serviço | Responsabilidade |
 |---|---|
 | **Authentication** | Cadastro e login por e-mail e senha, login com Google (só no APK), sessão persistente no aparelho, recuperação de senha, troca de e-mail e senha com reautenticação, exclusão de conta. |
-| **Cloud Firestore** | Banco de dados do app: perfis, ocorrências, linha do tempo, participações, comentários, denúncias e dados privados do usuário (preferências, ocorrências silenciadas, última visita). |
-| Storage | **Não usado** (exige o plano pago). As fotos ficam no **Vercel Blob**, enviadas pela API do Colecity; ver "Fotos". |
-| Cloud Messaging (FCM) | Entrega das notificações push no Android. O envio é feito pela API de push (`push-api/`), pelo Expo Push Service; ver "Notificações push". |
+| **Cloud Firestore** | Dados do próprio usuário: aceite dos termos, preferência de notificações, ocorrências silenciadas, última visita e aparelhos para push. O domínio (ocorrências, comentários etc.) fica na API C#. |
+| Storage | **Não usado** (exige o plano pago). As fotos ficam no **Vercel Blob**, enviadas pelo BFF; ver "Fotos". |
+| Cloud Messaging (FCM) | Entrega das notificações push no Android, pelo Expo Push Service; ver "Notificações push". |
 
-### Estrutura do banco
+### Estrutura do banco (Firestore)
 
 ```
-perfis/{uid}                          nome público (lido por todos, escrito só pelo dono)
-users/{uid}                           privado: aceite dos termos e preferências
-users/{uid}/occurrenceState/{id}      privado: ocorrência silenciada e última visita
-ocorrencias/{id}                      ocorrência + contagens (totalAfetados, totalApoios, totalDenuncias)
-ocorrencias/{id}/linhaDoTempo/{eid}   eventos automáticos (criada, mudou de estado, marcos, concluída)
-participacoes/{ocorrenciaId_uid}      afetado / apoio de cada conta
-comentarios/{id}                      comentários (campo ocorrenciaId)
-denuncias/{tipo_conteudoId_uid}       uma denúncia por conta por conteúdo
+users/{uid}                           aceite dos termos e preferência de notificações
+users/{uid}/occurrenceState/{id}      ocorrência silenciada e última visita
+users/{uid}/devices/{deviceId}        token de push do aparelho
 ```
-
-As contagens são atualizadas em **transações** (`runTransaction`): duas pessoas participando ao mesmo tempo não perdem contagem. O detalhe da ocorrência e os comentários usam **listeners** (`onSnapshot`), removidos quando a tela fecha.
 
 ### Regras de segurança
 
-As regras estão versionadas em [`firestore.rules`](firestore.rules). Não há nenhuma regra aberta para escrita. Resumo:
+As regras estão em [`firestore.rules`](firestore.rules):
 
-- Toda escrita exige usuário autenticado.
-- `users/{uid}` e subcoleções: leitura e escrita só pelo próprio dono.
-- `perfis/{uid}`: qualquer pessoa lê o nome público; só o dono escreve.
-- **Ocorrência:** criada pelo próprio autor, já Aberta e com ele como único afetado. Só o autor edita descrição e fotos e só ele conclui. Nunca é excluída.
-- **Contagens:** `totalAfetados` e `totalApoios` só mudam junto com a participação de quem está escrevendo, de 1 em 1. `totalDenuncias` só soma 1 quando a denúncia daquela conta é criada na mesma escrita.
-- **Participação e comentário:** cada conta escreve apenas os próprios (`request.auth.uid`). Não há edição de comentário; só o autor exclui.
-- **Linha do tempo:** só aceita novos eventos; nunca altera nem apaga.
-- **Denúncia:** uma por conta por conteúdo; só quem denunciou lê a própria.
-
-As leituras de ocorrências, comentários e nomes são públicas porque a consulta não exige conta.
+- `users/{uid}` e subcoleções: leitura e escrita **só pelo próprio dono**, com os campos permitidos listados.
+- Qualquer outro caminho: negado. As coleções internas do BFF (controle de push) só são acessadas pelo Admin SDK, no servidor.
 
 ## Como configurar o Firebase
 
 1. Crie um projeto em [console.firebase.google.com](https://console.firebase.google.com).
-2. **Authentication → Método de login:** ative "E-mail/senha". Em **Configurações → Política de senha**, exija no mínimo 8 caracteres, com letra e número.
+2. **Authentication → Método de login:** ative "E-mail/senha" (e "Google", ver abaixo). Em **Configurações → Política de senha**, exija no mínimo 8 caracteres, com letra e número.
 3. **Firestore Database:** crie o banco em modo de produção (região `southamerica-east1`).
 4. **Regras:** em Firestore → Regras, cole o conteúdo de `firestore.rules` e publique.
-5. **Configuração do app:** em Configurações do projeto → Seus apps, adicione um app Web e copie o objeto `firebaseConfig` para `mobile/firebaseConfig.json`. Esse arquivo contém apenas a configuração pública do SDK cliente e é versionado; a proteção dos dados vem das regras. Nenhuma credencial administrativa (conta de serviço) entra no app ou no repositório.
-6. **Dados iniciais:** rode `npm run seed` (seção abaixo).
+5. **Configuração do app:** em Configurações do projeto → Seus apps, adicione um app Web e copie o objeto `firebaseConfig` para `mobile/firebaseConfig.json`. Esse arquivo contém apenas a configuração pública do SDK cliente e é versionado. Nenhuma credencial administrativa (conta de serviço) entra no app ou no repositório.
 
 ## Como instalar e executar
 
@@ -119,28 +120,27 @@ Pré-requisitos: Node.js 20 ou mais novo e o app **Expo Go** no celular (ou um e
 ```bash
 cd mobile
 npm install
-npm run seed     # só na primeira vez: cria as contas e as ocorrências de demonstração
+cp .env.example .env.local   # preencha EXPO_PUBLIC_BFF_URL
 npm start
 ```
 
-Leia o QR code com o Expo Go.
+Leia o QR code com o Expo Go. O app usa o BFF publicado (https://push-api-rho.vercel.app), que fala com a API de domínio no Render. O plano gratuito do Render dorme sem uso: a primeira tela pode levar até um minuto para carregar.
 
-### Dados iniciais (seed)
+**Sem internet ou sem backend:** rode com `EXPO_PUBLIC_DATA_SOURCE=mock` no `.env.local`. Tudo passa a ser simulado no aparelho, inclusive o login (conta de demonstração `ana@colecity.app` / `colecity123`).
 
-`npm run seed` executa [`scripts/seed-firestore.ts`](scripts/seed-firestore.ts). Ele cria 10 contas de demonstração e grava 36 ocorrências em bairros reais de São Paulo, com participações e comentários. O script usa só o SDK cliente: cada dado é gravado logado como a conta dona dele, obedecendo às regras de segurança. Pode ser executado de novo sem duplicar.
+### Dados de demonstração
 
-**Conta de demonstração:** `ana@colecity.app` / `colecity123`. As outras contas seguem o mesmo padrão (`bruno@`, `carla@`, `diego@`…), com a mesma senha.
+A API de domínio sobe com ocorrências fictícias em bairros reais de São Paulo, com participações e comentários (ver [`../backend/README.md`](../backend/README.md)). No plano gratuito do Render, esses dados voltam ao estado inicial sempre que o serviço reinicia. Para registrar, participar ou comentar, crie uma conta no próprio app.
 
 ### Variáveis de ambiente
 
-Os nomes estão em `.env.example`. Valores locais vão em `.env.local`, que não é versionado.
+Os nomes estão em `.env.example`. Valores locais vão em `.env.local`, que não é versionado. Para o APK, os valores ficam nos perfis do `eas.json`.
 
 | Variável | Para quê |
 |---|---|
-| `EXPO_PUBLIC_DATA_SOURCE` | `firestore` (padrão): Firebase Auth + Firestore. `mock`: dados de demonstração guardados no aparelho, sem internet. `bff`: API própria em `EXPO_PUBLIC_BFF_URL`. |
-| `EXPO_PUBLIC_BFF_URL` | URL base do BFF (só com `bff`). |
+| `EXPO_PUBLIC_DATA_SOURCE` | `bff` (padrão): BFF + API de domínio, login pelo Firebase. `mock`: tudo simulado no aparelho, sem internet. |
+| `EXPO_PUBLIC_BFF_URL` | URL do BFF, sem barra no final (ex.: `https://push-api-rho.vercel.app`). |
 | `EXPO_PUBLIC_MOCK_ERROR_RATE` | Com `mock`: chance (0 a 1) de cada chamada falhar, para ver as telas de erro. |
-| `EXPO_PUBLIC_PUSH_API_URL` | URL pública da API de push (sem barra no final). Vazia: o app não avisa eventos. |
 | `API_KEY_MAPS` | Chave da Maps SDK for Android. Só para o build (APK). |
 | `GOOGLE_MAPS_IOS_API_KEY`, `GOOGLE_SERVICES_JSON` | Só para o build próprio. |
 
@@ -156,14 +156,12 @@ npm run doctor      # expo-doctor
 
 ## Fotos
 
-O Firebase Storage exige o plano pago. As fotos ficam no **Vercel Blob**, pela mesma API do push ([`../push-api/`](../push-api/README.md)):
+O Firebase Storage exige o plano pago. As fotos ficam no **Vercel Blob**, enviadas pelo BFF:
 
 1. A foto é comprimida no aparelho para WebP (maior lado ≤ 1920 px, qualidade 0,7; RN-REG-04).
-2. O app envia para `POST /fotos` com o ID token do Firebase. A API confere o login, o formato e o tamanho, e decide o caminho (`ocorrencias/{uid}/{id}.webp` ou `comentarios/{uid}/{id}.webp`).
-3. O Firestore guarda só o caminho e a URL pública, **nunca a imagem em Base64**.
+2. O app envia para `POST /fotos` do BFF com o ID token do Firebase. O BFF confere o login, o formato e o tamanho, e decide o caminho (`ocorrencias/{uid}/{id}.webp` ou `comentarios/{uid}/{id}.webp`).
+3. Ao registrar, comentar ou concluir, o app envia ao domínio **só o caminho** (`path`), nunca a imagem. Nas respostas, o BFF acrescenta a URL pública de cada foto.
 4. Sem internet, a ação que tem foto fica "Aguardando envio" e a foto sobe junto quando a conexão volta.
-
-Sem `EXPO_PUBLIC_PUSH_API_URL` configurada, as fotos ficam só no aparelho.
 
 ## Google Maps no APK
 
@@ -184,7 +182,7 @@ Sem a chave o APK abre, mas o mapa fica em branco.
 Funciona só no **APK / development build** (biblioteca nativa `@react-native-google-signin/google-signin`); no Expo Go o botão mostra um aviso.
 
 - O Google devolve um `idToken`, trocado por uma sessão do Firebase Auth (`signInWithCredential`).
-- **Primeiro acesso** pede o aceite dos termos antes de criar a conta no banco (RN-CON-11). Se a pessoa desistir, não fica logada.
+- **Primeiro acesso** pede o aceite dos termos antes de criar a conta (RN-CON-11). Se a pessoa desistir, não fica logada.
 - **Conta só com Google** pode definir uma senha em Perfil → Dados da conta (RN-CON-13); o e-mail é o do Google (RN-CON-14).
 - **Excluir conta** sem senha pede um novo login com a mesma conta do Google (RN-CON-08).
 
@@ -198,6 +196,14 @@ Configuração (uma vez por keystore):
 
 Sem a SHA-1 cadastrada o Google recusa o login (`DEVELOPER_ERROR`) e o app mostra uma mensagem de erro genérica.
 
+## Exclusão de conta (RN-CON-08)
+
+Depois da confirmação (senha ou novo login com Google), nesta ordem:
+
+1. `DELETE /usuarios/me` no BFF: o domínio **anonimiza** a conta (o nome some das ocorrências e comentários, e as participações saem das contagens).
+2. Os dados do usuário no Firestore (`users/{uid}`, estados e aparelhos) são apagados.
+3. A conta é excluída do Firebase Authentication (`deleteUser`).
+
 ## Notificações push (Android)
 
 Funcionam só no **APK / development build** e só no Android.
@@ -207,8 +213,8 @@ Funcionam só no **APK / development build** e só no Android.
 | Permissão | Pedida após o primeiro registro ou a primeira participação, nunca na abertura do app (RN-NOT-01). |
 | Token | O app obtém o **Expo push token** e grava em `users/{uid}/devices/{deviceId}` (`token`, `plataforma`, `enabled`, `updatedAt`). É regravado na abertura, no login e quando o token muda; no logout o aparelho é desativado. |
 | Sem permissão ou sem token | O Perfil explica o motivo (permissão negada, ou aparelho sem Google Play Services/sem rede). Nada trava. |
-| Envio | Depois de **comentar, concluir ou reabrir** (já gravado no Firestore), o app chama `POST /notificar` da API de push com o ID token do Firebase. Falha na chamada não desfaz a ação nem mostra erro. |
-| Quem recebe | Decidido no servidor: autor, afetados e apoiadores, menos quem fez a ação, quem silenciou a ocorrência e quem desligou as notificações (RN-NOT-02, RN-NOT-04). |
+| Envio | Nasce no domínio: comentário, conclusão, reabertura ou desvio confirmado vira um evento, que o domínio envia ao BFF. O app não participa. |
+| Quem recebe | Calculado no servidor: autor, afetados e apoiadores, menos quem fez a ação, quem silenciou a ocorrência e quem desligou as notificações (RN-NOT-02, RN-NOT-04). Comentários: no máximo 1 push por ocorrência a cada 30 minutos. |
 | Toque | Abre a ocorrência (`occurrenceId` no payload, RN-NOT-05). |
 
 ### Configuração no Android (FCM)
@@ -216,14 +222,6 @@ Funcionam só no **APK / development build** e só no Android.
 1. Console do Firebase → Configurações do projeto → Seus apps → **Adicionar app Android** com o pacote `com.colecity.app`.
 2. Baixe o `google-services.json` e salve em `mobile/google-services.json`. É configuração pública do cliente e é versionado; os perfis do `eas.json` já apontam para ele.
 3. Console do Firebase → Configurações do projeto → **Contas de serviço** → Gerar nova chave privada. Envie esse JSON ao EAS (`npx eas-cli@latest credentials` → Android → Google Service Account → FCM V1). **Esse arquivo não vai para o repositório.**
-
-### API de push
-
-Código e documentação em [`../push-api/`](../push-api/README.md). Hospedada na Vercel.
-
-- **URL pública:** https://push-api-rho.vercel.app (health check: https://push-api-rho.vercel.app/health)
-- **Endpoints:** `POST /notificar` e `GET /health`.
-- **Health check:** `GET <URL>/health` deve responder `{"status":"ok"}`.
 
 ### Evidência de notificação recebida
 
@@ -240,7 +238,7 @@ npx eas-cli@latest init          # só na primeira vez: grava o projectId no app
 npm run build:apk                # perfil preview: APK instalável, distribuição interna
 ```
 
-Ao terminar, o EAS mostra um link e um QR code. Qualquer pessoa com o link baixa e instala o APK (é preciso permitir "instalar apps desconhecidos"). O passo a passo completo, com as variáveis e as credenciais, está em [`../docs/14-build-apk.md`](../docs/14-build-apk.md).
+Os perfis do `eas.json` já apontam para o BFF (`EXPO_PUBLIC_DATA_SOURCE=bff` e `EXPO_PUBLIC_BFF_URL`). Ao terminar, o EAS mostra um link e um QR code. Qualquer pessoa com o link baixa e instala o APK (é preciso permitir "instalar apps desconhecidos"). O passo a passo completo, com as variáveis e as credenciais, está em [`../docs/14-build-apk.md`](../docs/14-build-apk.md).
 
 ## Estrutura de pastas
 
@@ -257,32 +255,29 @@ mobile/
     services/
       firebase.ts         inicialização única do Firebase
       contratos.ts        interfaces dos services (iguais para todas as fontes de dados)
-      index.ts            único ponto que escolhe a fonte de dados
-      firestore/          adaptadores Firebase (Auth e Firestore)
+      index.ts            único ponto que escolhe a fonte de dados (bff ou mock)
+      http/               adaptadores Axios para o BFF (rotas, recursos, fotos, atualização ao vivo)
+      firestore/          Firebase Auth e dados do usuário (users/{uid})
       mock/               adaptadores com dados de demonstração
-      http/               adaptadores Axios para o BFF
       api.ts              instância Axios + interceptors
+      notificacoes.ts     registro do aparelho para push
       offlineQueue.ts     fila "Aguardando envio"
       queryClient.ts      TanStack Query com cache persistido
-    mocks/                dados semente (usados pelo mock e pelo seed)
+    mocks/                dados semente do mock
     theme/                cores, tipografia, espaçamentos
-    types/                modelos do contrato
+    types/                modelos do contrato (doc 10)
     utils/                datas, distâncias, validações, regras de ocorrência
-  scripts/seed-firestore.ts   dados iniciais
-  firestore.rules             regras de segurança
-  firebaseConfig.json         configuração pública do SDK cliente
+  firestore.rules         regras de segurança
+  firebaseConfig.json     configuração pública do SDK cliente
 ```
 
 ## Limitações conhecidas
 
-- **Fotos antigas:** as tiradas antes da integração com o Vercel Blob ficaram só no aparelho de quem tirou; em outros aparelhos aparece "Foto indisponível". Excluir a conta não apaga as fotos já publicadas, que fazem parte das ocorrências.
-- **Regras de negócio no app:** sem um servidor próprio, as regras do Firestore garantem autoria e coerência das contagens, mas validações mais ricas (limite de requisições, geocodificação oficial, moderação) ficam para a API de domínio.
-- **Localização exata:** o documento da ocorrência guarda o ponto exato e o aproximado. O app só exibe o aproximado (~100 m), mas o ponto exato é legível por quem consultar o banco diretamente. A API de domínio resolve isso ao não expor o campo.
-- **Encerramento automático por inatividade** (7 ou 30 dias) não é executado: exigiria uma função agendada, disponível só no plano pago.
+- **Hospedagem gratuita:** a API de domínio no Render dorme após cerca de 15 minutos sem uso (a primeira chamada leva até um minuto) e volta aos dados de demonstração quando reinicia. Contas do Firebase continuam valendo: o BFF recadastra a conta no domínio no primeiro acesso.
+- **"Ao vivo":** o detalhe da ocorrência e os comentários são atualizados a cada 20 segundos enquanto a tela está aberta, não por um canal de tempo real.
+- **Fotos antigas:** as tiradas antes da integração com o Vercel Blob ficaram só no aparelho de quem tirou. Excluir a conta não apaga as fotos já publicadas, que fazem parte das ocorrências.
 - **Entrar com Google** só funciona no APK / development build. No Expo Go o botão avisa que o recurso depende do APK.
-- **Notificações push:** só no Android e só no APK (no Expo Go o recurso fica desligado, sem erro). Desvio de rota confirmado não gera push, e comentários além do limite de 30 minutos são descartados em vez de agrupados.
-- **Transporte ao vivo:** linhas, trajetos e posições dos ônibus são simulados no app; a ocorrência de desvio de rota é gravada no Firestore.
-- **Filtros e ordenação** são aplicados no aparelho sobre as ocorrências carregadas, o que serve para o volume de uma demonstração.
+- **Notificações push:** só no Android e só no APK (no Expo Go o recurso fica desligado, sem erro). Comentários além do limite de 30 minutos são descartados em vez de agrupados.
 
 ## O que aplicamos do semestre
 
@@ -294,12 +289,12 @@ mobile/
 | Context API | Autenticação, tema, rascunho do registro e viagem ativa |
 | Hooks customizados, `useMemo`, `useCallback` | `useOcorrencias`, `useParticipacao`, `useComentarios`, `useViagem`, filtros e mapa |
 | AsyncStorage | Tema, filtros, sessão do Firebase, cache das consultas e fila offline |
-| Consumo de API com Axios, service layer e interceptors | `src/services/api.ts` (token, 401, 429, offline) e `src/services/http/` |
+| Consumo de API com Axios, service layer e interceptors | `src/services/api.ts` (token, 401, 429, offline) e `src/services/http/`, consumindo o BFF |
 | TanStack Query | Leituras com cache persistido, retry e modo offline; `useMutation` nas escritas |
 | Loading, erro, retry e empty state | Todas as telas |
 | Formulário dinâmico a partir de JSON | `src/config/formularios.ts` + `DynamicField` |
-| Firebase Authentication | Login por e-mail e senha, sessão persistente, recuperação de senha, exclusão de conta |
-| Cloud Firestore com regras de segurança | Ocorrências, participações, comentários, denúncias e dados do usuário; `firestore.rules` |
+| Firebase Authentication | Login por e-mail e senha e Google, sessão persistente, recuperação de senha, exclusão de conta |
+| Cloud Firestore com regras de segurança | Dados do próprio usuário (preferências, silenciadas, aparelhos); `firestore.rules` |
 | Imagens com permissões | Câmera e galeria, compressão WebP; imagem padrão quando a foto falha |
 | Tema light/dark | Perfil → Aparência |
 

@@ -15,7 +15,7 @@ Como rodar o app em cada ambiente e como gerar o APK. Stack em [09](09-stack-mob
 
 **Não há código para trocar.** O app detecta sozinho onde está rodando (`src/config/env.ts`) e liga ou desliga push, login Google nativo e o provedor do mapa. Em Perfil → Sobre o Colecity → Ambiente aparece `DEV` ou `PROD`.
 
-A fonte de dados é outra chave, independente do ambiente: `EXPO_PUBLIC_DATA_SOURCE` (`firestore` = Firebase Auth + Cloud Firestore, padrão; `mock` = dados de demonstração no aparelho; `bff` = API em `EXPO_PUBLIC_BFF_URL`).
+A fonte de dados é outra chave, independente do ambiente: `EXPO_PUBLIC_DATA_SOURCE` (`bff` = BFF em `EXPO_PUBLIC_BFF_URL` + API de domínio, padrão; `mock` = dados de demonstração no aparelho).
 
 ## 2. Variáveis
 
@@ -23,10 +23,9 @@ Nomes em `mobile/.env.example`. Valores locais vão em `mobile/.env.local`. Tant
 
 | Variável | Usada em | Para quê |
 |---|---|---|
-| `EXPO_PUBLIC_DATA_SOURCE` | app | `firestore` (padrão), `mock` ou `bff` |
-| `EXPO_PUBLIC_BFF_URL` | app | URL base do BFF |
+| `EXPO_PUBLIC_DATA_SOURCE` | app | `bff` (padrão) ou `mock` |
+| `EXPO_PUBLIC_BFF_URL` | app | URL do BFF (`bff/`, na Vercel), sem barra no final |
 | `EXPO_PUBLIC_MOCK_ERROR_RATE` | app | Chance (0 a 1) de o mock falhar, para testar telas de erro |
-| `EXPO_PUBLIC_PUSH_API_URL` | app | URL pública da API de push (`push-api/`), sem barra no final |
 | `API_KEY_MAPS` | build | Chave do Maps SDK for Android |
 | `GOOGLE_MAPS_IOS_API_KEY` | build | Chave do Maps SDK for iOS (opcional; habilita mapa de calor no iOS) |
 | `GOOGLE_SERVICES_JSON` | build | Caminho do `google-services.json` (push/FCM) |
@@ -81,11 +80,11 @@ Sem a chave o build funciona, mas o mapa fica em branco.
    npx eas-cli@latest credentials
    ```
    Android → perfil → **Google Service Account** → **Manage your Google Service Account Key for Push Notifications (FCM V1)** → envie o JSON. Esse arquivo nunca vai para o repositório.
-4. Publique a API de push (`push-api/README.md`) e coloque a URL em `EXPO_PUBLIC_PUSH_API_URL`, no `env` dos perfis `development` e `preview` do `eas.json`.
-5. Publique as regras do Firestore (`mobile/firestore.rules`), que agora cobrem `devices`, `eventosProcessados` e `pushControle`.
+4. Publique o BFF (`bff/README.md`) e coloque a URL em `EXPO_PUBLIC_BFF_URL`, no `env` dos perfis `development` e `preview` do `eas.json` (já preenchido).
+5. Publique as regras do Firestore (`mobile/firestore.rules`), que cobrem só `users/{uid}` e as subcoleções `occurrenceState` e `devices`.
 6. Gere um novo build (mudança nativa).
 
-O app registra o token e avisa a API de push quando alguém comenta, conclui ou reabre; quem recebe é decidido pela API (doc 08).
+O app só registra o token. Quando alguém comenta, conclui, reabre ou confirma um desvio, o domínio avisa o BFF, que decide quem recebe e envia (doc 08).
 
 ### 4.3.1 Login com Google
 

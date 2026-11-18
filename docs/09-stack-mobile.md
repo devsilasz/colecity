@@ -51,7 +51,7 @@ App da jornada do cidadão. Regras em [07](07-regras-de-negocio-produto.md); arq
 - **Intervalo de envio da posição:** 1 minuto (RN-TAV-04). Enquanto o transporte é simulado no app (fontes `firestore` e `mock`), cai para 10 segundos, só para o fluxo de desvio caber em uma demonstração; a simulação também troca a posição quando o aparelho está a mais de 2 km da linha.
 - **Sair da conta:** pede confirmação e descarta as ações "Aguardando envio" daquele usuário no aparelho.
 - **Com a fonte `mock`**, a tela de login mostra a conta de demonstração e "Entrar com Google" usa uma conta simulada. Com `firestore`, o botão do Google avisa que o recurso depende do APK.
-- **Fonte de dados (`EXPO_PUBLIC_DATA_SOURCE`):** `firestore` (padrão) usa Firebase Authentication + Cloud Firestore direto do app, com as regras de negócio aplicadas nos adaptadores de `src/services/firestore/` e conferidas pelas regras de segurança (`mobile/firestore.rules`); `mock` usa dados no aparelho; `bff` usa a API própria. É uma solução para a entrega de Mobile enquanto o BFF e a API de domínio não existem: a arquitetura alvo continua sendo a do doc 08. Estrutura do banco, limitações (sem Storage, sem encerramento automático, ponto exato legível no banco) e passo a passo estão em `mobile/README.md`.
+- **Fonte de dados (`EXPO_PUBLIC_DATA_SOURCE`):** `bff` (padrão) usa o Firebase Authentication para o login e o BFF (`EXPO_PUBLIC_BFF_URL`, adaptadores Axios em `src/services/http/`) para todo o domínio; o Firestore guarda só `users/{uid}` (`src/services/firestore/userData.firestore.ts`). `mock` usa dados no aparelho. Até 18/11/2026 havia também a fonte `firestore`, com o domínio inteiro no Firestore; ela foi removida na integração com o BFF (doc 06, decisões 30 a 32).
 - **Troca de e-mail com Firebase:** a troca só vale depois que a pessoa confirma pelo link enviado ao novo endereço; o app avisa "enviamos um link de confirmação".
 - **Tempo real:** o detalhe da ocorrência e os comentários usam listeners do Firestore, removidos ao fechar a tela.
 - **Foto que não carrega** mostra a imagem padrão "Foto indisponível".
@@ -235,10 +235,10 @@ Após registrar: online, abre o detalhe da ocorrência criada; offline, o regist
 ## Nota — build, Maps e push (17/11/2026)
 
 - **Variáveis:** `mobile/.env` deixou de ser versionado (o `.gitignore` ignora `.env` e `.env.*`, menos `.env.example`). A chave do Maps é `API_KEY_MAPS` (antes `GOOGLE_MAPS_ANDROID_API_KEY`), lida no `app.config.ts` para `android.config.googleMaps.apiKey`; no EAS ela é cadastrada com `eas env:create`.
-- **Push no app:** `src/services/notificacoes.ts` e `src/hooks/useNotificacoesPush.ts`. O `expo-notifications` é carregado sob demanda, só no Android fora do Expo Go e com a fonte `firestore`; nos demais casos tudo vira "não faz nada". Permissão pedida após o primeiro registro ou participação (RN-NOT-01); Expo push token gravado em `users/{uid}/devices/{deviceId}`; aparelho desativado no logout e apagado na exclusão da conta; toque abre `/explorar/[id]`; o Perfil explica permissão negada e aparelho sem token.
-- **Aviso de eventos:** após comentar (inclusive pela fila offline), concluir ou reabrir, o app chama `POST /notificar` da API de push (`EXPO_PUBLIC_PUSH_API_URL`) com o ID token. O `eventoId` é o id do comentário ou `<ocorrenciaId>_<concluida|reaberta>_<data>`. Falha é silenciosa.
+- **Push no app:** `src/services/notificacoes.ts` e `src/hooks/useNotificacoesPush.ts`. O `expo-notifications` é carregado sob demanda, só no Android fora do Expo Go e com a fonte `bff`; nos demais casos tudo vira "não faz nada". Permissão pedida após o primeiro registro ou participação (RN-NOT-01); Expo push token gravado em `users/{uid}/devices/{deviceId}`; aparelho desativado no logout e apagado na exclusão da conta; toque abre `/explorar/[id]`; o Perfil explica permissão negada e aparelho sem token.
+- **Aviso de eventos (até 18/11/2026):** o app chamava `POST /notificar` da API de push depois de comentar, concluir ou reabrir. Desde a integração com o BFF, o push nasce no domínio (outbox → `POST /eventos-dominio` do BFF) e o app só registra o aparelho.
 - **Regras do Firestore:** `devices` só o dono; `eventosProcessados` e `pushControle` fechados para qualquer cliente.
-- **Fora do escopo:** push de desvio de rota confirmado (RN-NOT-02) e agrupamento posterior dos comentários que caem no limite de 30 minutos.
+- **Fora do escopo:** agrupamento posterior dos comentários que caem no limite de 30 minutos.
 
 ## Nota — login com Google (17/11/2026)
 
@@ -265,8 +265,7 @@ No primeiro APK, pedir o Expo push token fazia o Android emitir o evento de toke
 
 ## Nota — fotos no Vercel Blob (17/11/2026)
 
-- Decisão: sem plano Blaze (sem Firebase Storage) e sem projeto livre no Supabase, as fotos vão para o **Vercel Blob**, no mesmo projeto da API de push (`push-api/`).
-- Fluxo: `uploadNuvem` (`src/services/firestore/upload.local.ts`) envia a foto WebP para `POST /fotos?destino=…` com o ID token; a API valida login, assinatura WebP e tamanho (≤ 2 MB), grava em `{destino}/{uid}/{id}.webp` (público) e devolve `{ id, path, url }`. O Firestore guarda só caminho e URL.
-- Escolha do adaptador em `services/index.ts`: com `EXPO_PUBLIC_PUSH_API_URL` usa `uploadNuvem`; sem ela, `uploadLocal` (fotos só no aparelho).
+- Decisão: sem plano Blaze (sem Firebase Storage) e sem projeto livre no Supabase, as fotos vão para o **Vercel Blob**, no mesmo projeto da API de push (`push-api/`, hoje `bff/`).
+- Fluxo: `uploadHttp` (`src/services/http/upload.http.ts`, antes `uploadNuvem`) envia a foto WebP para `POST /fotos?destino=…` com o ID token; a API valida login, assinatura WebP e tamanho (≤ 2 MB), grava em `{destino}/{uid}/{id}.webp` (público) e devolve `{ id, path, url }`. O domínio guarda só o `path`; o BFF acrescenta a URL nas respostas.
 - Falha de rede no envio vira `OFFLINE`: a ação vai para a fila offline e a foto sobe depois.
 - Fora do escopo: apagar fotos do Blob ao excluir a conta (fazem parte das ocorrências, que permanecem anonimizadas).

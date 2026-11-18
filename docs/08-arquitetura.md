@@ -169,7 +169,7 @@ processedEvents/{eventId}        (somente BFF)
   processedAt: timestamp
 ```
 
-> **Entrega de Mobile sem BFF:** enquanto o BFF e a API de domínio não existem, o app grava também as ocorrências no Firestore (`perfis`, `ocorrencias`, `participacoes`, `comentarios`, `denuncias`), com `EXPO_PUBLIC_DATA_SOURCE=firestore`. A estrutura e as regras dessa versão estão em `mobile/README.md` e `mobile/firestore.rules`. A estrutura abaixo é a da arquitetura alvo, em que o Firestore guarda só dados do próprio usuário.
+> **Histórico (até 18/11/2026):** antes da integração com o BFF e a API de domínio, o app grava também as ocorrências no Firestore (`perfis`, `ocorrencias`, `participacoes`, `comentarios`, `denuncias`), com `EXPO_PUBLIC_DATA_SOURCE=firestore`. Essa versão foi removida: hoje o Firestore guarda só os dados do próprio usuário, como descrito abaixo (ver a nota de 18/11/2026 no fim deste documento).
 
 Regras de segurança (versionadas no repositório do app em `firestore.rules`):
 - `users/{uid}` e subcoleções: leitura e escrita apenas pelo próprio usuário autenticado (`request.auth.uid == uid`).
@@ -209,11 +209,11 @@ Implementação (ver `backend/README.md`): EF Core com SQLite e migrations. As c
 - `Idempotency-Key` é enviado pelo app nas criações (fila offline).
 - O BFF pode acrescentar endpoints agregados por tela, mas os de cima são a base.
 
-## Nota — push sem Cloud Functions (decisão de 17/11/2026)
+## Nota — push sem Cloud Functions (decisão de 17/11/2026; substituída em 18/11/2026)
 
 O projeto Firebase está no plano Spark, sem Cloud Functions. Enquanto o BFF não existe, o push é enviado por uma API própria em `push-api/` (Node + TypeScript, Vercel), que cumpre as mesmas obrigações descritas para o BFF na seção de push: valida o ID token com o Admin SDK, confere o evento no Firestore, calcula os destinatários no servidor, evita duplicidade (`eventosProcessados`), aplica o limite de 30 minutos para comentários (`pushControle`), desativa tokens inválidos e tem health check. Diferenças: o gatilho vem do app (`POST /notificar` após comentar, concluir ou reabrir), não de eventos do domínio; o envio usa o Expo Push Service (que entrega via FCM); desvio de rota confirmado não gera push. Detalhes em `push-api/README.md`.
 
-## Nota — fotos sem Firebase Storage (decisão de 17/11/2026)
+## Nota — fotos sem Firebase Storage (decisão de 17/11/2026; o endpoint passou para o BFF em 18/11/2026)
 
 Sem o plano Blaze, as fotos são guardadas no **Vercel Blob** pela API em `push-api/` (`POST /fotos`), que valida o ID token do Firebase e decide o caminho no servidor. O app não tem a chave do armazenamento. Quando o BFF existir, ele assume este endpoint.
 

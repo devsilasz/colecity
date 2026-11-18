@@ -1,3 +1,6 @@
+import { fetch } from 'expo/fetch';
+import { File } from 'expo-file-system';
+
 import { env } from '@/config/env';
 import type { UploadService } from '@/services/contratos';
 import { ErroApi } from '@/services/erros';
@@ -37,11 +40,13 @@ export const uploadHttp: UploadService = {
 
     let resposta: Response;
     try {
-      const arquivo = await (await fetch(foto.uri)).blob();
+      // Bytes lidos direto do arquivo e enviados pelo fetch do Expo: o Blob do React Native passa por
+      // base64 e, no Android, chegava ao BFF sem a assinatura WebP (415).
+      const bytes = await new File(foto.uri).bytes();
       resposta = await fetch(`${env.bffUrl}/fotos?destino=${destino}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'image/webp' },
-        body: arquivo,
+        body: bytes,
       });
     } catch {
       throw new ErroApi('OFFLINE', 0);

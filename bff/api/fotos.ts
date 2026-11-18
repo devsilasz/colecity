@@ -58,7 +58,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
 
     const bytes = await lerCorpo(req, TAMANHO_MAXIMO, 'FOTO_GRANDE_DEMAIS');
-    if (!ehWebp(bytes)) throw new ErroHttp(415, 'FOTO_INVALIDA', 'O arquivo não é uma imagem WebP.');
+    if (!ehWebp(bytes)) {
+      // Diagnóstico sem dado pessoal: tipo declarado, tamanho e assinatura do arquivo.
+      console.warn('[fotos] recusada', { tipo, tamanho: bytes.length, inicio: bytes.subarray(0, 12).toString('hex') });
+      throw new ErroHttp(415, 'FOTO_INVALIDA', 'O arquivo não é uma imagem WebP.');
+    }
 
     const id = randomUUID();
     const path = `${destino}/${uid}/${id}.webp`;

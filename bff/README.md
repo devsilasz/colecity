@@ -143,10 +143,16 @@ npm run lint
 
 ## Publicar na Vercel
 
-O projeto da Vercel é o mesmo da antiga `push-api/`; só a pasta mudou.
+O projeto da Vercel é o mesmo da antiga `push-api/` (URL https://push-api-rho.vercel.app). Ele **não está ligado ao GitHub** (o repositório pertence a outra conta), então cada mudança é publicada pelo terminal, de dentro desta pasta:
 
-- **Publicado pelo terminal:** a pasta `.vercel/` (fora do Git) veio junto no renomeio, então basta `cd bff && npx vercel --prod`.
-- **Importado do GitHub:** em vercel.com → projeto → **Settings → Build and Deployment → Root Directory**, troque `push-api` por `bff`.
+```bash
+cd bff
+npx vercel login      # uma vez
+npx vercel link       # uma vez, se a pasta .vercel/ não existir: escolha o projeto push-api
+npx vercel --prod
+```
+
+Como o terminal envia só esta pasta, o **Root Directory** do projeto fica **vazio**. Se o projeto for ligado ao GitHub no futuro, troque para `bff`.
 
 Em **Settings → Environment Variables**, cadastre `DOMINIO_URL` e `DOMINIO_SERVICE_KEY` (as do Firebase e do Blob já existem). Publique de novo e confira `/health`: `"status": "ok"` e `"dominioNoAr": true`.
 

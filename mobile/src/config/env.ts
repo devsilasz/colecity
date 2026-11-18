@@ -1,3 +1,4 @@
+import { isRunningInExpoGo } from 'expo';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 
@@ -19,7 +20,9 @@ function lerFonteDados(): FonteDados {
 }
 
 const fonteDados = lerFonteDados();
-const rodandoNoExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+// `isRunningInExpoGo` é a verificação oficial; a do `executionEnvironment` fica como reforço.
+const rodandoNoExpoGo =
+  isRunningInExpoGo() || Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 function lerTaxaErro(): number {
   const valor = Number(process.env.EXPO_PUBLIC_MOCK_ERROR_RATE ?? '0');

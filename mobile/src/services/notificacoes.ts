@@ -95,20 +95,25 @@ export const notificacoes = {
   /** Como a notificação aparece com o app aberto, e o canal do Android. Chamar uma vez. */
   async configurar(): Promise<void> {
     if (!disponivel) return;
-    const Notifications = await carregarModulo();
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-      }),
-    });
-    await Notifications.setNotificationChannelAsync(CANAL_OCORRENCIAS, {
-      name: 'Ocorrências',
-      description: 'Novidades nas ocorrências que você registrou, afetam você ou apoia.',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    });
+    try {
+      const Notifications = await carregarModulo();
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        }),
+      });
+      await Notifications.setNotificationChannelAsync(CANAL_OCORRENCIAS, {
+        name: 'Ocorrências',
+        description: 'Novidades nas ocorrências que você registrou, afetam você ou apoia.',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      });
+    } catch {
+      // Push é opcional: uma falha aqui nunca pode derrubar o app.
+      definirEstado('INDISPONIVEL');
+    }
   },
 
   /**
@@ -197,7 +202,7 @@ export const notificacoes = {
         tratar(resposta.notification.request.content.data),
       );
       remover = () => inscricao.remove();
-    });
+    }).catch(() => undefined);
 
     return () => {
       ativo = false;
@@ -223,7 +228,7 @@ export const notificacoes = {
         if (!primeiro) void notificacoes.registrarAparelho({ pedir: false });
       });
       remover = () => inscricao.remove();
-    });
+    }).catch(() => undefined);
 
     return () => {
       ativo = false;

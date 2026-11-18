@@ -188,6 +188,8 @@ Regras versionadas em `storage.rules`:
 ## 10. Banco do domínio
 Definido pelo time do backend C#. Requisitos vindos das regras: consultas geográficas (raio de 300 m e 500 m, distância ao trajeto da linha) e agregações periódicas para mapa de calor e Zona de atenção.
 
+Implementação (ver `backend/README.md`): EF Core com SQLite e migrations. As consultas por raio filtram por caixa delimitadora no banco e calculam a distância exata (Haversine) em memória; a distância ao trajeto usa projeção local sobre os pontos do GTFS. Zonas de atenção são recalculadas a cada 5 minutos para uma tabela própria; o mapa de calor é agregado no banco (GROUP BY com COUNT DISTINCT de afetados). Em produção, o caminho natural é PostgreSQL + PostGIS.
+
 ## 11. Contrato app ↔ BFF
 
 - Base: `EXPO_PUBLIC_BFF_URL` = `https://southamerica-east1-<projeto>.cloudfunctions.net`. Cada recurso é uma função (seção 3.2); o caminho começa pelo nome da função.

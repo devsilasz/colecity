@@ -8,13 +8,10 @@ public interface ISpTransClient
 }
 
 /// <param name="CodigoLinha">Código interno da linha na SPTrans (cl).</param>
-/// <param name="Letreiro">Letreiro completo, ex.: 6072-10.</param>
+/// <param name="Letreiro">Letreiro completo, ex.: 8700-10.</param>
 /// <param name="Sentido">1 = terminal principal para secundário, 2 = volta.</param>
-public record LinhaSpTrans(int CodigoLinha, string Letreiro, int Sentido, string TerminalPrincipal, string TerminalSecundario)
-{
-    public string Destino => Sentido == 1 ? TerminalSecundario : TerminalPrincipal;
-}
+public record LinhaSpTrans(int CodigoLinha, string Letreiro, int Sentido, string TerminalPrincipal, string TerminalSecundario);
 
 public record PosicaoLinhaSpTrans(string HorarioReferencia, IReadOnlyList<VeiculoSpTrans> Veiculos);
 
-public record VeiculoSpTrans(string Prefixo, bool Acessivel, double Latitude, double Longitude);
+public record VeiculoSpTrans(string Prefixo, bool Acessivel, double Latitude, double Longitude, DateTime? AtualizadoEm);

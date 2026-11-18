@@ -1,118 +1,111 @@
-using System.ComponentModel.DataAnnotations;
-using Colecity.Domain.Entities;
+using System.Text.Json.Serialization;
 using Colecity.Domain.Enums;
 
 namespace Colecity.Application.Dtos;
 
-/// <summary>
-/// Dados para registrar uma ocorrência. Os campos específicos dependem do módulo:
-/// Transporte exige CodigoLinha e TipoProblema; Vias exige PontoReferencia;
-/// Energia e Agua aceitam DuracaoEstimadaHoras.
-/// </summary>
-public sealed record CriarOcorrenciaRequest
+/// <summary>Corpo de <c>POST /ocorrencias</c>.</summary>
+/// <param name="Linha">Só em TRANSPORTE, deve existir no GTFS. Exemplo: 8700-10.</param>
+/// <param name="DataHoraOcorrido">Só em SEGURANCA; não futura e no máximo 30 dias atrás.</param>
+public sealed record RegistrarOcorrenciaRequest(
+    Categoria? Categoria,
+    TipoOcorrencia? Tipo,
+    string? Descricao,
+    CoordenadaDto? Localizacao,
+    string? Linha,
+    DateTime? DataHoraOcorrido,
+    IReadOnlyList<FotoRefDto>? Fotos);
+
+/// <summary>Corpo de <c>PATCH /ocorrencias/{id}</c>: só descrição e fotos (a lista substitui a atual).</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record EditarOcorrenciaRequest(string? Descricao, IReadOnlyList<FotoRefDto>? Fotos);
+
+/// <summary>Corpo de <c>POST /ocorrencias/{id}/conclusao</c>.</summary>
+public sealed record ConcluirOcorrenciaRequest(string? Feedback, IReadOnlyList<FotoRefDto>? Fotos);
+
+/// <summary>Corpo de <c>POST /ocorrencias/semelhantes</c>.</summary>
+public sealed record SemelhantesRequest(Categoria? Categoria, TipoOcorrencia? Tipo, CoordenadaDto? Localizacao, string? Linha);
+
+public sealed record MinhaParticipacaoResponse(bool Afetado, bool Apoio, bool Autor);
+
+/// <summary>Item de lista (doc 10, seção 3.2).</summary>
+public record OcorrenciaResumoResponse
 {
-    [Required, EnumDataType(typeof(Modulo))]
-    public Modulo? Modulo { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required Guid Id { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required string Titulo { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required Categoria Categoria { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required TipoOcorrencia Tipo { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required EstadoOcorrencia Estado { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required string? Bairro { get; init; }
 
-    [Required]
-    public Guid AutorId { get; init; }
+    /// <summary>Arredondada em ~100 m. A localização exata nunca sai do domínio.</summary>
+    [JsonPropertyOrder(-1)]
+    public required CoordenadaDto LocalizacaoAproximada { get; init; }
 
-    /// <example>Ônibus não passa depois das 22h</example>
-    [Required, StringLength(Ocorrencia.TamanhoTitulo)]
-    public string Titulo { get; init; } = "";
+    [JsonPropertyOrder(-1)]
+    public required int TotalAfetados { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required int TotalApoios { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required DateTime UltimaAtividadeEm { get; init; }
+    [JsonPropertyOrder(-1)]
+    public required bool ZonaAtencao { get; init; }
 
-    /// <example>Espero mais de 1 hora no ponto da Estrada do M'Boi Mirim.</example>
-    [Required, StringLength(Ocorrencia.TamanhoDescricao)]
-    public string Descricao { get; init; } = "";
-
-    /// <example>Jardim Ângela</example>
-    [Required, StringLength(Usuario.TamanhoBairro)]
-    public string Bairro { get; init; } = "";
-
-    /// <example>6072-10</example>
-    [StringLength(OcorrenciaTransporte.TamanhoCodigoLinha)]
-    public string? CodigoLinha { get; init; }
-
-    [EnumDataType(typeof(TipoProblemaTransporte))]
-    public TipoProblemaTransporte? TipoProblema { get; init; }
-
-    [Range(0, 720)]
-    public int? DuracaoEstimadaHoras { get; init; }
-
-    [StringLength(OcorrenciaVia.TamanhoPontoReferencia)]
-    public string? PontoReferencia { get; init; }
+    /// <summary>Só vem quando a requisição tem <c>X-User-Id</c>.</summary>
+    [JsonPropertyOrder(-1)]
+    public required MinhaParticipacaoResponse? MinhaParticipacao { get; init; }
 }
 
-public sealed record EditarOcorrenciaRequest
+public sealed record OcorrenciaSemelhanteResponse : OcorrenciaResumoResponse
 {
-    [Required]
-    public Guid UsuarioId { get; init; }
-
-    [Required, StringLength(Ocorrencia.TamanhoTitulo)]
-    public string Titulo { get; init; } = "";
-
-    [Required, StringLength(Ocorrencia.TamanhoDescricao)]
-    public string Descricao { get; init; } = "";
+    public required int DistanciaMetros { get; init; }
 }
 
-/// <summary>Identifica o usuário que executa a ação (apoiar, confirmar resolução).</summary>
-public sealed record AcaoUsuarioRequest
+/// <summary>Detalhe (doc 10, seção 3.3).</summary>
+public sealed record OcorrenciaDetalheResponse : OcorrenciaResumoResponse
 {
-    [Required]
-    public Guid UsuarioId { get; init; }
+    public required string Descricao { get; init; }
+    public required string? Rua { get; init; }
+    public required LinhaOcorrenciaResponse? Linha { get; init; }
+    public required DateTime? DataHoraOcorrido { get; init; }
+    public required IReadOnlyList<FotoResponse> Fotos { get; init; }
+    public required AutorResponse Autor { get; init; }
+    public required DateTime CriadaEm { get; init; }
+    public required DateTime? ConcluidaEm { get; init; }
+    public required ConclusaoResponse? Conclusao { get; init; }
+    public required bool PodeEditar { get; init; }
+    public required bool PodeConcluir { get; init; }
+    public required bool PodeReabrir { get; init; }
+    public required string AvisoContagem { get; init; }
+
+    /// <summary>Só aparece (como <c>true</c>) para o autor de ocorrência oculta pela moderação.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Oculta { get; init; }
 }
 
-public sealed record ComentarRequest
-{
-    [Required]
-    public Guid UsuarioId { get; init; }
+public sealed record LinhaOcorrenciaResponse(string Codigo, string Nome);
 
-    /// <example>Aqui também! Hoje esperei 50 minutos.</example>
-    [Required, StringLength(Comentario.TamanhoTexto)]
-    public string Texto { get; init; } = "";
+public sealed record AutorResponse(string Nome, bool Removido);
+
+public sealed record ConclusaoResponse(MotivoConclusao Motivo, string? Feedback, IReadOnlyList<FotoResponse> Fotos);
+
+public sealed record EventoLinhaDoTempoResponse(TipoEventoLinhaDoTempo Tipo, string Descricao, DateTime Em)
+{
+    /// <summary>Trecho desviado, só em <c>DESVIO_DETECTADO</c>.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<CoordenadaDto>? Trecho { get; init; }
 }
 
-public sealed record OcorrenciaResponse(
-    Guid Id,
-    Modulo Modulo,
-    string Titulo,
-    string Descricao,
-    string Bairro,
-    string Resumo,
-    StatusOcorrencia Status,
-    int TotalApoios,
-    int ApoiosParaAbaixoAssinado,
-    int Prioridade,
-    Guid AutorId,
-    DateTime CriadaEm,
-    DateTime? ResolvidaEm,
-    string? CodigoLinha = null,
-    TipoProblemaTransporte? TipoProblema = null,
-    int? DuracaoEstimadaHoras = null,
-    string? PontoReferencia = null)
-{
-    public static OcorrenciaResponse De(Ocorrencia o)
-    {
-        var resposta = new OcorrenciaResponse(o.Id, o.Modulo, o.Titulo, o.Descricao, o.Bairro, o.Resumir(),
-            o.Status, o.TotalApoios, o.ApoiosParaAbaixoAssinado, o.CalcularPrioridade(), o.AutorId,
-            o.CriadoEm, o.ResolvidaEm);
+public sealed record ApoiadorResponse(string Nome);
 
-        return o switch
-        {
-            OcorrenciaTransporte t => resposta with { CodigoLinha = t.CodigoLinha, TipoProblema = t.TipoProblema },
-            OcorrenciaInterrupcaoServico s => resposta with { DuracaoEstimadaHoras = s.DuracaoEstimadaHoras },
-            OcorrenciaVia v => resposta with { PontoReferencia = v.PontoReferencia },
-            _ => resposta
-        };
-    }
-}
+/// <summary>Resposta de marcar ou retirar participação.</summary>
+public sealed record ParticipacaoResponse(int TotalAfetados, int TotalApoios, MinhaParticipacaoResponse MinhaParticipacao);
 
-public sealed record ComentarioResponse(Guid Id, Guid UsuarioId, string Texto, DateTime CriadoEm)
-{
-    public static ComentarioResponse De(Comentario c) => new(c.Id, c.UsuarioId, c.Texto, c.CriadoEm);
-}
+public sealed record TipoResponse(TipoOcorrencia Tipo, string Nome);
 
-public sealed record PaginaResponse<T>(IReadOnlyList<T> Itens, int Pagina, int TamanhoPagina, int Total)
-{
-    public int TotalPaginas => (int)Math.Ceiling(Total / (double)TamanhoPagina);
-}
+public sealed record CategoriaResponse(Categoria Categoria, string Nome, IReadOnlyList<TipoResponse> Tipos);

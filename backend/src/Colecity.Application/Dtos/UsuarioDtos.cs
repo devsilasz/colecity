@@ -1,24 +1,19 @@
-using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using Colecity.Domain.Entities;
 
 namespace Colecity.Application.Dtos;
 
-public sealed record CriarUsuarioRequest
+/// <summary>Corpo de <c>PUT /usuarios/me</c>.</summary>
+/// <param name="Nome">De 2 a 80 caracteres. Exemplo: Ana Souza.</param>
+/// <param name="Email">Exemplo: ana@exemplo.com.</param>
+/// <param name="AceiteTermosVersao">Obrigatório no primeiro acesso. Exemplo: 2026-11.</param>
+public sealed record CadastroUsuarioRequest(string? Nome, string? Email, string? AceiteTermosVersao);
+
+/// <summary>Corpo de <c>PATCH /usuarios/me</c>. Campos opcionais; outros campos são recusados.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record AtualizacaoUsuarioRequest(string? Nome, string? Email);
+
+public sealed record UsuarioResponse(Guid Id, string Nome, string Email, string AceiteTermosVersao, DateTime CriadoEm)
 {
-    /// <example>Ana Souza</example>
-    [Required, StringLength(Usuario.TamanhoNome)]
-    public string Nome { get; init; } = "";
-
-    /// <example>ana@exemplo.com</example>
-    [Required, EmailAddress, StringLength(Usuario.TamanhoEmail)]
-    public string Email { get; init; } = "";
-
-    /// <example>Jardim Ângela</example>
-    [Required, StringLength(Usuario.TamanhoBairro)]
-    public string Bairro { get; init; } = "";
-}
-
-public sealed record UsuarioResponse(Guid Id, string Nome, string Email, string Bairro, DateTime CriadoEm)
-{
-    public static UsuarioResponse De(Usuario u) => new(u.Id, u.Nome, u.Email, u.Bairro, u.CriadoEm);
+    public static UsuarioResponse De(Usuario u) => new(u.Id, u.Nome!, u.Email!, u.AceiteTermosVersao!, u.CriadoEm);
 }

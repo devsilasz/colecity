@@ -41,7 +41,7 @@ docs/        Documentação do produto: visão, regras de negócio, arquitetura,
 |---|---|---|
 | **App mobile** | Porta de entrada do cidadão: explorar no mapa e em lista, registrar, participar, comentar, acompanhar, transporte ao vivo e perfil | [`mobile/README.md`](mobile/README.md) |
 | **API de push** | Valida o usuário, calcula no servidor quem deve ser avisado e envia as notificações (Android) | [`push-api/README.md`](push-api/README.md) |
-| **Backend C#** | Camada de serviços: domínio de ocorrências, persistência, documentação OpenAPI, testes e cruzamento dos relatos de transporte com a SPTrans | [`backend/README.md`](backend/README.md) |
+| **Backend C#** | Camada de serviços: domínio de ocorrências, persistência, documentação OpenAPI, testes e cruzamento dos relatos de transporte com a SPTrans; segue o contrato do [doc 10](docs/10-contrato-api-dominio.md) | [`backend/README.md`](backend/README.md) |
 | **Documentação** | Regras de negócio, arquitetura e especificação usadas no desenvolvimento e nos testes | [`docs/README.md`](docs/README.md) |
 
 ## Entregas por disciplina

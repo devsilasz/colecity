@@ -25,3 +25,9 @@
 | 21 | App grava direto no Firestore apenas dados do próprio usuário, com regras de segurança. |
 | 22 | App: Expo SDK mais recente, Expo Router, Context API, Axios com interceptors, TanStack Query, AsyncStorage, formulário dinâmico por JSON, tema light/dark. |
 | 23 | Fora da v1: compartilhamento, push no iOS, localização em segundo plano, Realtime Database, MQTT, comentários em tempo real, versão web. |
+| 24 | API de domínio: .NET 10, EF Core com SQLite (o doc 08 deixa o banco com o backend). Consultas geográficas por caixa delimitadora no banco + distância exata em memória. |
+| 25 | SPTrans: sem token, a API usa dados simulados com o mesmo contrato da Olho Vivo; com `SpTrans:Token`, usa a API real. GTFS: amostra de 4 linhas no formato oficial, trocável pelo GTFS completo (`Gtfs:Diretorio`). |
+| 26 | Geocodificação reversa do título (RN-REG-07) pelo Nominatim (OpenStreetMap); se falhar, "Tipo – Localização aproximada" e uma tarefa completa depois. |
+| 27 | Limite do município (RN-REG-06) por polígono simplificado do contorno de São Paulo; em produção, polígono oficial do GeoSampa/IBGE. |
+| 28 | Eventos domínio → BFF pelo padrão Outbox (gravados na mesma transação, enviados em segundo plano com 3 tentativas). |
+| 29 | Moderação: decisão `MANTER` reexibe o conteúdo e zera a contagem; `REMOVER` mantém oculto. Reabrir ocorrência não concluída → `409 OCORRENCIA_NAO_CONCLUIDA`; confirmar desvio sem suspeita → `422 DESVIO_NAO_DETECTADO`; cabeçalho de idempotência ausente → `400 IDEMPOTENCY_KEY_OBRIGATORIA`. |

@@ -119,7 +119,7 @@ Módulos adicionais da v1: 7b. Notificações push (Android) e 8. Transporte ao 
 | RN-COM-01 | Usuários autenticados podem comentar em ocorrências não concluídas. |
 | RN-COM-02 | Comentário: 1 a 500 caracteres e até 3 fotos (mesma regra WebP de RN-REG-04). |
 | RN-COM-03 | Autores que marcaram "Também estou sendo afetado" aparecem com o selo "Afetado". |
-| RN-COM-04 | O autor pode excluir o próprio comentário; não há edição. |
+| RN-COM-04 | O autor pode excluir o próprio comentário enquanto a ocorrência não estiver concluída; depois da conclusão, nada muda (decisão de 18/11/2026). Não há edição. |
 | RN-COM-05 | Comentários são exibidos em ordem cronológica (mais antigo primeiro). |
 | RN-COM-06 | Comentários podem conter links. O Colecity não valida nem classifica links como oficiais; cabe a quem lê avaliar a fonte. |
 

@@ -330,7 +330,7 @@ Página de `Comentario`, mais antigo primeiro (RN-COM-05). Ocultos por moderaç�
 `texto` 1–500 → `422 COMENTARIO_TAMANHO_INVALIDO`. Ocorrência concluída → `409 OCORRENCIA_CONCLUIDA`. Resposta `201` com `Comentario`. Dispara `ocorrencia.comentario_criado`.
 
 #### `DELETE /comentarios/{id}` 🔒
-Só o autor → senão `403 SOMENTE_AUTOR` (RN-COM-04). Resposta `204`. Não há edição.
+Só o autor → senão `403 SOMENTE_AUTOR` (RN-COM-04). Ocorrência concluída → `409 OCORRENCIA_CONCLUIDA` (e `podeExcluir: false` na listagem). Resposta `204`. Não há edição.
 
 ### 4.7 Denúncias (RN-MOD)
 

@@ -140,7 +140,8 @@ export function paraComentario(db: BancoMock, c: ComentarioMock, uid: string | n
     fotos: c.fotos,
     autor: { ...autor, afetado: ocorrencia?.afetadosIds.includes(c.autorId) ?? false },
     criadoEm: c.criadoEm,
-    podeExcluir: proprio,
+    // Ocorrência concluída é só consulta: nem o autor exclui o comentário.
+    podeExcluir: proprio && ocorrencia?.estado !== 'CONCLUIDA',
     ...(proprio && oculto(db, 'COMENTARIO', c.id) ? { oculto: true } : {}),
   };
 }

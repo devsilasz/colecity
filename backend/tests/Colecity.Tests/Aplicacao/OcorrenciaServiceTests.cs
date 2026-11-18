@@ -228,6 +228,27 @@ public sealed class OcorrenciaServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Comentario_nao_pode_ser_excluido_depois_da_conclusao()
+    {
+        var ana = await _cenario.CadastrarAsync("ana");
+        var bia = await _cenario.CadastrarAsync("bia");
+        var ocorrencia = Fabrica.Ocorrencia(ana);
+        await _cenario.SalvarAsync(ocorrencia);
+
+        Guid comentarioId;
+        using (var como = _cenario.Como(bia))
+            comentarioId = (await como.Comentarios.ComentarAsync(ocorrencia.Id, new ComentarRequest("Ainda sem água.", null))).Id;
+        using (var como = _cenario.Como(ana))
+            await como.Ocorrencias.ConcluirAsync(ocorrencia.Id, new ConcluirOcorrenciaRequest(null, null));
+
+        using var comoBia = _cenario.Como(bia);
+        var pagina = await comoBia.Comentarios.ListarAsync(ocorrencia.Id, null, null);
+        Assert.False(Assert.Single(pagina.Items).PodeExcluir);
+        var erro = await Assert.ThrowsAsync<ConflitoException>(() => comoBia.Comentarios.ExcluirAsync(comentarioId));
+        Assert.Equal(CodigosErro.OcorrenciaConcluida, erro.Codigo);
+    }
+
+    [Fact]
     public async Task Minhas_ocorrencias_por_aba_com_concluidas_por_ultimo()
     {
         var ana = await _cenario.CadastrarAsync("ana");

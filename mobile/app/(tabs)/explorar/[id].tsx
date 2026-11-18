@@ -32,6 +32,7 @@ import { useEstadoOcorrenciaUsuario } from '@/hooks/useEstadoOcorrenciaUsuario';
 import { pendentesDaOcorrencia, useFilaOffline } from '@/hooks/useFilaOffline';
 import { useOcorrenciaAoVivo } from '@/hooks/useTempoReal';
 import { useApoiadores, useLinhaDoTempo, useOcorrencia } from '@/hooks/useOcorrencia';
+import { usePuxarParaAtualizar } from '@/hooks/usePuxarParaAtualizar';
 import { ehErroApi, mensagemDeErro } from '@/services/erros';
 import { espacos } from '@/theme';
 import type { OcorrenciaDetalhe } from '@/types/ocorrencia';
@@ -248,6 +249,7 @@ export default function OcorrenciaScreen() {
   const { usuario } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const consulta = useOcorrencia(id ?? '');
+  const { puxando, aoPuxar } = usePuxarParaAtualizar(consulta.refetch);
   const estadoUsuario = useEstadoOcorrenciaUsuario(usuario?.uid ?? null, id ?? '');
   useOcorrenciaAoVivo(id ?? '');
 
@@ -290,8 +292,8 @@ export default function OcorrenciaScreen() {
       }
       refreshControl={
         <RefreshControl
-          refreshing={consulta.isRefetching}
-          onRefresh={() => void consulta.refetch()}
+          refreshing={puxando}
+          onRefresh={aoPuxar}
           tintColor={cores.primaria}
           colors={[cores.primaria]}
         />

@@ -191,10 +191,7 @@ function Minhas({ uid }: { uid: string }) {
         erro={lista.erro}
         atualizando={lista.atualizando}
         pausada={lista.pausada}
-        aoRecarregar={() => {
-          void lista.recarregar();
-          void estados.refetch();
-        }}
+        aoRecarregar={() => Promise.all([lista.recarregar(), estados.refetch()])}
         aoAbrir={abrir}
         temMais={lista.temMais}
         carregandoMais={lista.carregandoMais}

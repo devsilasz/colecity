@@ -67,6 +67,8 @@ export const comentarioMock: ComentarioService = {
     if (!comentario) throw new ErroApi('NAO_ENCONTRADO', 404);
     // RN-COM-04.
     if (comentario.autorId !== usuario.id) throw new ErroApi('SOMENTE_AUTOR', 403);
+    const ocorrencia = db.ocorrencias.find((o) => o.id === comentario.ocorrenciaId);
+    if (ocorrencia?.estado === 'CONCLUIDA') throw new ErroApi('OCORRENCIA_CONCLUIDA', 409);
 
     db.comentarios = db.comentarios.filter((c) => c.id !== comentarioId);
     await salvarBanco();

@@ -9,6 +9,7 @@ import { SkeletonList } from '@/components/feedback/Skeleton';
 import { Card } from '@/components/ui/Card';
 import { useTema } from '@/context/ThemeContext';
 import { mensagemDeErro } from '@/services/erros';
+import { usePuxarParaAtualizar } from '@/hooks/usePuxarParaAtualizar';
 import { espacos } from '@/theme';
 import type { OcorrenciaResumo } from '@/types/ocorrencia';
 
@@ -23,7 +24,7 @@ export interface ListaOcorrenciasProps {
   atualizando: boolean;
   /** Consulta pausada por falta de conexão e sem cache. */
   pausada?: boolean;
-  aoRecarregar: () => void;
+  aoRecarregar: () => unknown;
   aoAbrir: (id: string) => void;
   temMais?: boolean;
   carregandoMais?: boolean;
@@ -63,6 +64,7 @@ export function ListaOcorrencias({
   rodape,
 }: ListaOcorrenciasProps) {
   const { cores } = useTema();
+  const { puxando, aoPuxar } = usePuxarParaAtualizar(aoRecarregar);
 
   const renderItem = useCallback<ListRenderItem<OcorrenciaResumo>>(
     ({ item }) => (
@@ -132,8 +134,8 @@ export function ListaOcorrencias({
       contentContainerStyle={[styles.conteudo, { paddingTop: recuoTopo, paddingBottom: recuoBase }]}
       refreshControl={
         <RefreshControl
-          refreshing={atualizando && !carregandoMais}
-          onRefresh={aoRecarregar}
+          refreshing={puxando}
+          onRefresh={aoPuxar}
           tintColor={cores.primaria}
           colors={[cores.primaria]}
           progressViewOffset={recuoTopo}

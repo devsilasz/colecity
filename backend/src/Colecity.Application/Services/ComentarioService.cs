@@ -50,12 +50,15 @@ public class ComentarioService(
             PodeExcluir: true);
     }
 
-    /// <summary>Só o autor exclui; não há edição (RN-COM-04).</summary>
+    /// <summary>Só o autor exclui, e só enquanto a ocorrência não está concluída; não há edição (RN-COM-04).</summary>
     public async Task ExcluirAsync(Guid comentarioId, CancellationToken ct = default)
     {
         var usuario = await contexto.ObterObrigatorioAsync(ct);
         var comentario = await comentarios.ObterAsync(comentarioId, ct) ?? throw new NaoEncontradoException("Comentário");
         comentario.GarantirQuePodeSerExcluidoPor(usuario.Id);
+        var ocorrencia = await ocorrencias.ObterAsync(comentario.OcorrenciaId, ct);
+        if (ocorrencia is { Concluida: true })
+            throw new ConflitoException(CodigosErro.OcorrenciaConcluida, "A ocorrência já foi concluída.");
         comentarios.Remover(comentario);
         await unitOfWork.SalvarAsync(ct);
     }

@@ -26,6 +26,7 @@ import { pendentesDaOcorrencia, useFilaOffline } from '@/hooks/useFilaOffline';
 import { useOcorrencia } from '@/hooks/useOcorrencia';
 import { useComentariosAoVivo } from '@/hooks/useTempoReal';
 import type { FotoLocal } from '@/services/contratos';
+import { usePuxarParaAtualizar } from '@/hooks/usePuxarParaAtualizar';
 import { mensagemDeErro } from '@/services/erros';
 import { ESCALA_FONTE_MAXIMA, espacos, raios, tipografia } from '@/theme';
 import type { Comentario } from '@/types/comentario';
@@ -114,6 +115,7 @@ export default function ComentariosScreen() {
 
   const ocorrencia = useOcorrencia(id);
   const lista = useComentarios(id);
+  const { puxando, aoPuxar } = usePuxarParaAtualizar(lista.recarregar);
   const fila = useFilaOffline(usuario?.uid ?? null);
   useComentariosAoVivo(id);
 
@@ -174,8 +176,8 @@ export default function ComentariosScreen() {
           contentContainerStyle={[styles.conteudo, { paddingTop: topo + espacos.md }]}
           refreshControl={
             <RefreshControl
-              refreshing={lista.atualizando && !lista.carregandoMais}
-              onRefresh={() => void lista.recarregar()}
+              refreshing={puxando}
+              onRefresh={aoPuxar}
               tintColor={cores.primaria}
               colors={[cores.primaria]}
               progressViewOffset={topo}

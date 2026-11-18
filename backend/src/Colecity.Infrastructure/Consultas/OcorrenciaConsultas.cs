@@ -205,6 +205,9 @@ public class OcorrenciaConsultas(ColecityDbContext db) : IOcorrenciaConsultas
         var query = db.Comentarios.AsNoTracking()
             .Where(c => c.OcorrenciaId == ocorrenciaId && (!c.Oculto || c.AutorId == usuarioId));
         var total = await query.CountAsync(ct);
+        // Ocorrência concluída é só consulta: ninguém exclui comentário (decisão de 18/11/2026).
+        var concluida = await db.Ocorrencias.AsNoTracking()
+            .AnyAsync(o => o.Id == ocorrenciaId && o.Estado == EstadoOcorrencia.Concluida, ct);
         var comentarios = await query
             .OrderBy(c => c.CriadoEm)
             .Skip((page - 1) * pageSize)
@@ -231,7 +234,7 @@ public class OcorrenciaConsultas(ColecityDbContext db) : IOcorrenciaConsultas
                 Visiveis(c.Fotos, ehAutor),
                 new AutorComentarioResponse(nome, afetados.Contains(c.AutorId), nome == Usuario.NomeUsuarioRemovido),
                 c.CriadoEm,
-                ehAutor) { Oculto = c.Oculto ? true : null };
+                ehAutor && !concluida) { Oculto = c.Oculto ? true : null };
         }).ToList();
 
         return new Pagina<ComentarioResponse>(itens, page, pageSize, total);

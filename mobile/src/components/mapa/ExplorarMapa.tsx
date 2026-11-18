@@ -59,6 +59,10 @@ export function ExplorarMapa({
   const categoriaCalor = filtros.categorias.length === 1 ? filtros.categorias[0] : undefined;
   const calor = useMapaDeCalor(AREA_SAO_PAULO, categoriaCalor, camada === 'calor');
   const zonas = useZonasDeAtencao();
+  // Com filtro de categoria, só as zonas das categorias escolhidas (as zonas existem para Segurança e Riscos).
+  const zonasVisiveis = (zonas.data ?? []).filter(
+    (zona) => filtros.categorias.length === 0 || filtros.categorias.includes(zona.categoria),
+  );
 
   const selecionada = useMemo(
     () => lista.ocorrencias.find((ocorrencia) => ocorrencia.id === selecionadaId) ?? null,
@@ -93,7 +97,7 @@ export function ExplorarMapa({
         camada={camada}
         ocorrencias={lista.ocorrencias}
         pontosCalor={calor.data ?? []}
-        zonas={zonas.data ?? []}
+        zonas={zonasVisiveis}
         selecionadaId={selecionadaId}
         aoSelecionar={setSelecionadaId}
         mostrarUsuario={localizacao.permissao === 'concedida'}

@@ -47,7 +47,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     if (!ehDestino(destino)) {
       throw new ErroHttp(400, 'REQUISICAO_INVALIDA', 'Informe destino=ocorrencias ou destino=comentarios.');
     }
-    if (cabecalho(req, 'content-type') !== 'image/webp') {
+    // O fetch do Android troca o Content-Type pelo tipo do Blob (às vezes vazio ou genérico):
+    // o cabeçalho só barra o que claramente não é imagem; quem decide é a assinatura do arquivo.
+    const tipo = (cabecalho(req, 'content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+    if (tipo && tipo !== 'application/octet-stream' && !tipo.startsWith('image/')) {
       throw new ErroHttp(415, 'FOTO_INVALIDA', 'Envie a foto em WebP (Content-Type: image/webp).');
     }
     if (Number(cabecalho(req, 'content-length') ?? '0') > TAMANHO_MAXIMO) {

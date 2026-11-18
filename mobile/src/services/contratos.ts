@@ -137,6 +137,15 @@ export interface UploadService {
   enviar(foto: FotoLocal, destino: DestinoFoto): Promise<Foto>;
 }
 
+/**
+ * Atualizações em tempo real (listeners do Firestore). Cada assinatura devolve a função que
+ * a cancela; nas fontes sem tempo real (mock e BFF) as assinaturas não fazem nada.
+ */
+export interface TempoRealService {
+  assinarOcorrencia(ocorrenciaId: string, aoMudar: () => void): () => void;
+  assinarComentarios(ocorrenciaId: string, aoMudar: () => void): () => void;
+}
+
 /** Dados do próprio usuário (Firestore na versão real) — doc 08, seção 8. */
 export interface UserDataService {
   obterNotificacoesAtivas(uid: string): Promise<boolean>;

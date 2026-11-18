@@ -1,4 +1,3 @@
-import { CATEGORIAS_ZONA_ATENCAO } from '@/config/categorias';
 import {
   tituloOcorrencia,
   type BancoMock,
@@ -19,8 +18,9 @@ import type {
   ZonaAtencao,
 } from '@/types/ocorrencia';
 import type { ProvedorLogin, Usuario, UsuarioAuth } from '@/types/usuario';
-import { aproximar, distanciaMetros } from '@/utils/distancia';
+import { aproximar } from '@/utils/distancia';
 import { MS } from '@/utils/formatarData';
+import { calcularZonas as calcularZonasDe, emZona } from '@/utils/regrasOcorrencia';
 import { LIMITES } from '@/utils/validacoes';
 
 /** Converte os registros internos do mock nos modelos do contrato (doc 10, seção 3). */
@@ -30,8 +30,6 @@ export const AVISO_CONTAGEM =
 
 const NOME_REMOVIDO = 'Usuário removido';
 const DENUNCIAS_PARA_OCULTAR = 5;
-const RAIO_ZONA_M = 300;
-const MINIMO_RELATOS_ZONA = 5;
 
 export function totalAfetados(o: OcorrenciaMock): number {
   return o.afetadosIds.length + o.afetadosExtras;
@@ -64,49 +62,9 @@ export function oculto(db: BancoMock, tipoConteudo: TipoConteudo, conteudoId: st
   return contas.size >= DENUNCIAS_PARA_OCULTAR;
 }
 
-/** RN-ZON-01 a 03: 5+ relatos de contas distintas, mesma categoria, 300 m, 30 dias. */
+/** RN-ZON-01 a 03, sobre as ocorrências do banco mock. */
 export function calcularZonas(db: BancoMock): ZonaAtencao[] {
-  const limite = Date.now() - 30 * MS.DIA;
-  const zonas: ZonaAtencao[] = [];
-
-  for (const categoria of CATEGORIAS_ZONA_ATENCAO) {
-    const relatos = db.ocorrencias.filter(
-      (o) => o.categoria === categoria && new Date(o.criadaEm).getTime() >= limite,
-    );
-    const usados = new Set<string>();
-
-    const grupos = relatos
-      .map((centro) => relatos.filter((o) => distanciaMetros(centro.localizacao, o.localizacao) <= RAIO_ZONA_M))
-      .sort((a, b) => b.length - a.length);
-
-    for (const grupo of grupos) {
-      const livres = grupo.filter((o) => !usados.has(o.id));
-      const contas = new Set(livres.map((o) => o.autorId));
-      if (contas.size < MINIMO_RELATOS_ZONA) continue;
-
-      livres.forEach((o) => usados.add(o.id));
-      const centro = aproximar({
-        lat: livres.reduce((soma, o) => soma + o.localizacao.lat, 0) / livres.length,
-        lng: livres.reduce((soma, o) => soma + o.localizacao.lng, 0) / livres.length,
-      });
-      zonas.push({
-        categoria,
-        centro,
-        raioMetros: RAIO_ZONA_M,
-        totalRelatos: livres.length,
-        texto: `${livres.length} relatos da comunidade nos últimos 30 dias`,
-      });
-    }
-  }
-  return zonas;
-}
-
-function emZona(o: OcorrenciaMock, zonas: readonly ZonaAtencao[]): boolean {
-  return zonas.some(
-    (zona) =>
-      zona.categoria === o.categoria &&
-      distanciaMetros(o.localizacao, zona.centro) <= zona.raioMetros + 100,
-  );
+  return calcularZonasDe(db.ocorrencias);
 }
 
 export function paraResumo(

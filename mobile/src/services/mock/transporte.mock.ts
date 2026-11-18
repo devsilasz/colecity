@@ -3,6 +3,7 @@ import {
   novoId,
   salvarBanco,
   simularRede,
+  type BancoMock,
   type OcorrenciaMock,
   type ViagemMock,
 } from '@/mocks/banco';
@@ -57,207 +58,240 @@ function posicaoSimulada(viagem: ViagemMock, trajeto: Coordenada[]): Coordenada 
   return { lat: noTrajeto.lat + 0.004, lng: noTrajeto.lng + 0.0015 * passos };
 }
 
-export const transporteMock: TransporteService = {
-  async buscarLinhas(busca) {
-    await simularRede();
-    const termo = semAcento(busca.trim());
-    // Contrato: mínimo de 2 caracteres.
-    if (termo.length < 2) return [];
-    return LINHAS_SEMENTE.filter(
-      (l) => semAcento(l.codigo).includes(termo) || semAcento(l.nome).includes(termo),
-    ).map(({ codigo, nome, sentidos }) => ({ codigo, nome, sentidos }));
-  },
+/** O que muda entre o transporte 100% mock e o simulado sobre o Firestore. */
+export interface DependenciasTransporte {
+  /** Usuário logado (lança NAO_AUTENTICADO se não houver). */
+  uid: (db: BancoMock) => string;
+  /** RN-TAV-07: cria ou reforça a ocorrência de desvio da linha e devolve o id dela. */
+  registrarDesvio: (db: BancoMock, uid: string, linha: LinhaSemente, local: Coordenada) => Promise<string>;
+}
 
-  async trajeto(codigo, sentido) {
-    await simularRede();
-    return { pontos: trajetoDoSentido(buscarLinha(codigo), sentido) };
-  },
+/**
+ * Transporte ao vivo simulado no app (linhas, trajetos, ônibus e viagens), enquanto o BFF com os
+ * dados da SPTrans não existe. As viagens ficam no banco local; a ocorrência de desvio é gravada
+ * pela fonte de dados ativa.
+ */
+export function criarTransporteSimulado(dep: DependenciasTransporte): TransporteService {
+  return {
+    async buscarLinhas(busca) {
+      await simularRede();
+      const termo = semAcento(busca.trim());
+      // Contrato: mínimo de 2 caracteres.
+      if (termo.length < 2) return [];
+      return LINHAS_SEMENTE.filter(
+        (l) => semAcento(l.codigo).includes(termo) || semAcento(l.nome).includes(termo),
+      ).map(({ codigo, nome, sentidos }) => ({ codigo, nome, sentidos }));
+    },
 
-  async veiculos(codigo, sentido) {
-    const db = await simularRede();
-    const linha = buscarLinha(codigo);
-    const trajeto = trajetoDoSentido(linha, sentido);
-    const agora = new Date().toISOString();
+    async trajeto(codigo, sentido) {
+      await simularRede();
+      return { pontos: trajetoDoSentido(buscarLinha(codigo), sentido) };
+    },
 
-    // RN-TAV-03: posições "SPTrans" (Olho Vivo na versão real).
-    const sptrans: Veiculo[] = Array.from({ length: linha.frota }, (_, i) => ({
-      fonte: 'SPTRANS',
-      prefixo: `${linha.codigo.slice(0, 1)}${sentido} ${String(1200 + i * 37).padStart(4, '0')}`,
-      posicao: pontoNoTrajeto(trajeto, fracaoAtual(i, linha.frota)),
-      atualizadoEm: agora,
-      acessivel: i % 2 === 0,
-    }));
+    async veiculos(codigo, sentido) {
+      const db = await simularRede();
+      const linha = buscarLinha(codigo);
+      const trajeto = trajetoDoSentido(linha, sentido);
+      const agora = new Date().toISOString();
 
-    // RN-TAV-04/06: posição agregada das viagens ativas; nunca identifica o passageiro.
-    const ativas = db.viagens.filter(
-      (v) => v.ativa && v.linha === codigo && v.sentido === sentido && v.ultimaPosicao,
-    );
-    const passageiros: Veiculo[] = [
-      // Um ônibus relatado por outros passageiros, para a demonstração.
-      {
-        fonte: 'PASSAGEIROS',
-        prefixo: null,
-        posicao: pontoNoTrajeto(trajeto, fracaoAtual(0, linha.frota, 0.5 / linha.frota)),
+      // RN-TAV-03: posições "SPTrans" (Olho Vivo na versão real).
+      const sptrans: Veiculo[] = Array.from({ length: linha.frota }, (_, i) => ({
+        fonte: 'SPTRANS',
+        prefixo: `${linha.codigo.slice(0, 1)}${sentido} ${String(1200 + i * 37).padStart(4, '0')}`,
+        posicao: pontoNoTrajeto(trajeto, fracaoAtual(i, linha.frota)),
         atualizadoEm: agora,
-        acessivel: null,
-      },
-    ];
-    if (ativas.length > 0) {
-      passageiros.push({
-        fonte: 'PASSAGEIROS',
-        prefixo: null,
-        posicao: {
-          lat: ativas.reduce((s, v) => s + (v.ultimaPosicao?.lat ?? 0), 0) / ativas.length,
-          lng: ativas.reduce((s, v) => s + (v.ultimaPosicao?.lng ?? 0), 0) / ativas.length,
+        acessivel: i % 2 === 0,
+      }));
+
+      // RN-TAV-04/06: posição agregada das viagens ativas; nunca identifica o passageiro.
+      const ativas = db.viagens.filter(
+        (v) => v.ativa && v.linha === codigo && v.sentido === sentido && v.ultimaPosicao,
+      );
+      const passageiros: Veiculo[] = [
+        // Um ônibus relatado por outros passageiros, para a demonstração.
+        {
+          fonte: 'PASSAGEIROS',
+          prefixo: null,
+          posicao: pontoNoTrajeto(trajeto, fracaoAtual(0, linha.frota, 0.5 / linha.frota)),
+          atualizadoEm: agora,
+          acessivel: null,
         },
-        atualizadoEm: agora,
-        acessivel: null,
-      });
-    }
-
-    return [...sptrans, ...passageiros];
-  },
-
-  async iniciarViagem(linha, sentido) {
-    const db = await simularRede();
-    const usuario = exigirUsuario(db);
-    buscarLinha(linha);
-
-    const agora = Date.now();
-    const viagem: ViagemMock = {
-      id: novoId(),
-      uid: usuario.id,
-      linha,
-      sentido,
-      iniciadaEm: new Date(agora).toISOString(),
-      expiraEm: new Date(agora + DURACAO_VIAGEM_MS).toISOString(),
-      ativa: true,
-      totalPosicoes: 0,
-      foraDoTrajeto: 0,
-      desvioPerguntado: false,
-      trechoDesvio: [],
-      ultimaPosicao: null,
-    };
-    // RN-TAV-04: no máximo uma viagem ativa por usuário; iniciar outra encerra a anterior.
-    db.viagens = [...db.viagens.filter((v) => v.uid !== usuario.id), viagem];
-    await salvarBanco();
-    return { viagemId: viagem.id, expiraEm: viagem.expiraEm };
-  },
-
-  async enviarPosicao(viagemId, nova) {
-    const db = await simularRede();
-    const usuario = exigirUsuario(db);
-    const viagem = db.viagens.find((v) => v.id === viagemId && v.uid === usuario.id);
-
-    if (!viagem || !viagem.ativa || Date.now() > new Date(viagem.expiraEm).getTime()) {
-      if (viagem) viagem.ativa = false;
-      return { ativa: false, desvioSuspeito: false, trechoDesvio: null };
-    }
-
-    const trajeto = trajetoDoSentido(buscarLinha(viagem.linha), viagem.sentido);
-    const longeDaLinha = distanciaAoTrajeto(nova.posicao, trajeto) > DISTANCIA_SIMULAR_M;
-    const posicao = longeDaLinha ? posicaoSimulada(viagem, trajeto) : nova.posicao;
-
-    viagem.totalPosicoes += 1;
-    viagem.ultimaPosicao = posicao;
-
-    if (distanciaAoTrajeto(posicao, trajeto) > DISTANCIA_DESVIO_M) {
-      viagem.foraDoTrajeto += 1;
-      viagem.trechoDesvio = [...viagem.trechoDesvio, posicao];
-    } else {
-      viagem.foraDoTrajeto = 0;
-      viagem.trechoDesvio = [];
-    }
-
-    if (viagem.foraDoTrajeto >= POSICOES_PARA_ENCERRAR) viagem.ativa = false;
-
-    const desvioSuspeito =
-      viagem.ativa && viagem.foraDoTrajeto >= POSICOES_PARA_DESVIO && !viagem.desvioPerguntado;
-    if (desvioSuspeito) viagem.desvioPerguntado = true;
-
-    await salvarBanco();
-    return {
-      ativa: viagem.ativa,
-      desvioSuspeito,
-      trechoDesvio: desvioSuspeito ? viagem.trechoDesvio : null,
-    };
-  },
-
-  async responderDesvio(viagemId, confirmado) {
-    const db = await simularRede();
-    const usuario = exigirUsuario(db);
-    const viagem = db.viagens.find((v) => v.id === viagemId && v.uid === usuario.id);
-    if (!viagem) throw new ErroApi('NAO_ENCONTRADO', 404);
-
-    if (!confirmado) {
-      viagem.foraDoTrajeto = 0;
-      viagem.trechoDesvio = [];
-      await salvarBanco();
-      return { ocorrenciaId: null };
-    }
-
-    const linha = buscarLinha(viagem.linha);
-    const agora = new Date().toISOString();
-    const evento = {
-      tipo: 'DESVIO_DETECTADO' as const,
-      descricao: `Desvio de rota confirmado por passageiro na linha ${linha.codigo}`,
-      em: agora,
-    };
-
-    // RN-TAV-07: cria ou reforça a ocorrência "Alteração de rota sem aviso" da linha.
-    let ocorrencia = db.ocorrencias.find(
-      (o) =>
-        o.estado !== 'CONCLUIDA' &&
-        o.categoria === 'TRANSPORTE' &&
-        o.tipo === 'ALTERACAO_ROTA_SEM_AVISO' &&
-        o.linha?.codigo === linha.codigo,
-    );
-
-    if (ocorrencia) {
-      ocorrencia.linhaDoTempo = [...ocorrencia.linhaDoTempo, evento];
-      if (!ocorrencia.afetadosIds.includes(usuario.id)) {
-        ocorrencia.afetadosIds = [...ocorrencia.afetadosIds, usuario.id];
-        registrarNovoAfetado(ocorrencia, agora);
+      ];
+      if (ativas.length > 0) {
+        passageiros.push({
+          fonte: 'PASSAGEIROS',
+          prefixo: null,
+          posicao: {
+            lat: ativas.reduce((s, v) => s + (v.ultimaPosicao?.lat ?? 0), 0) / ativas.length,
+            lng: ativas.reduce((s, v) => s + (v.ultimaPosicao?.lng ?? 0), 0) / ativas.length,
+          },
+          atualizadoEm: agora,
+          acessivel: null,
+        });
       }
-      ocorrencia.ultimaAtividadeEm = agora;
-    } else {
-      const local = viagem.trechoDesvio[0] ?? viagem.ultimaPosicao ?? linha.trajeto[0];
-      const nova: OcorrenciaMock = {
+
+      return [...sptrans, ...passageiros];
+    },
+
+    async iniciarViagem(linha, sentido) {
+      const db = await simularRede();
+      const usuario = { id: dep.uid(db) };
+      buscarLinha(linha);
+
+      const agora = Date.now();
+      const viagem: ViagemMock = {
         id: novoId(),
-        categoria: 'TRANSPORTE',
-        tipo: 'ALTERACAO_ROTA_SEM_AVISO',
-        estado: 'ABERTA',
-        rua: '',
-        bairro: `Linha ${linha.codigo}`,
-        localizacao: local,
-        descricao: `Desvio de rota detectado pelo Transporte ao vivo na linha ${linha.codigo} (${linha.nome}).`,
-        linha: { codigo: linha.codigo, nome: linha.nome },
-        dataHoraOcorrido: null,
-        fotos: [],
-        autorId: usuario.id,
-        criadaEm: agora,
-        ultimaAtividadeEm: agora,
-        concluidaEm: null,
-        conclusao: null,
-        afetadosIds: [usuario.id],
-        apoiadoresIds: [],
-        afetadosExtras: 0,
-        apoiosExtras: 0,
-        linhaDoTempo: [{ tipo: 'CRIADA', descricao: 'Ocorrência registrada', em: agora }, evento],
+        uid: usuario.id,
+        linha,
+        sentido,
+        iniciadaEm: new Date(agora).toISOString(),
+        expiraEm: new Date(agora + DURACAO_VIAGEM_MS).toISOString(),
+        ativa: true,
+        totalPosicoes: 0,
+        foraDoTrajeto: 0,
+        desvioPerguntado: false,
+        trechoDesvio: [],
+        ultimaPosicao: null,
       };
-      db.ocorrencias = [nova, ...db.ocorrencias];
-      ocorrencia = nova;
+      // RN-TAV-04: no máximo uma viagem ativa por usuário; iniciar outra encerra a anterior.
+      db.viagens = [...db.viagens.filter((v) => v.uid !== usuario.id), viagem];
+      await salvarBanco();
+      return { viagemId: viagem.id, expiraEm: viagem.expiraEm };
+    },
+
+    async enviarPosicao(viagemId, nova) {
+      const db = await simularRede();
+      const usuario = { id: dep.uid(db) };
+      const viagem = db.viagens.find((v) => v.id === viagemId && v.uid === usuario.id);
+
+      if (!viagem || !viagem.ativa || Date.now() > new Date(viagem.expiraEm).getTime()) {
+        if (viagem) viagem.ativa = false;
+        return { ativa: false, desvioSuspeito: false, trechoDesvio: null };
+      }
+
+      const trajeto = trajetoDoSentido(buscarLinha(viagem.linha), viagem.sentido);
+      const longeDaLinha = distanciaAoTrajeto(nova.posicao, trajeto) > DISTANCIA_SIMULAR_M;
+      const posicao = longeDaLinha ? posicaoSimulada(viagem, trajeto) : nova.posicao;
+
+      viagem.totalPosicoes += 1;
+      viagem.ultimaPosicao = posicao;
+
+      if (distanciaAoTrajeto(posicao, trajeto) > DISTANCIA_DESVIO_M) {
+        viagem.foraDoTrajeto += 1;
+        viagem.trechoDesvio = [...viagem.trechoDesvio, posicao];
+      } else {
+        viagem.foraDoTrajeto = 0;
+        viagem.trechoDesvio = [];
+      }
+
+      if (viagem.foraDoTrajeto >= POSICOES_PARA_ENCERRAR) viagem.ativa = false;
+
+      const desvioSuspeito =
+        viagem.ativa && viagem.foraDoTrajeto >= POSICOES_PARA_DESVIO && !viagem.desvioPerguntado;
+      if (desvioSuspeito) viagem.desvioPerguntado = true;
+
+      await salvarBanco();
+      return {
+        ativa: viagem.ativa,
+        desvioSuspeito,
+        trechoDesvio: desvioSuspeito ? viagem.trechoDesvio : null,
+      };
+    },
+
+    async responderDesvio(viagemId, confirmado) {
+      const db = await simularRede();
+      const usuario = { id: dep.uid(db) };
+      const viagem = db.viagens.find((v) => v.id === viagemId && v.uid === usuario.id);
+      if (!viagem) throw new ErroApi('NAO_ENCONTRADO', 404);
+
+      if (!confirmado) {
+        viagem.foraDoTrajeto = 0;
+        viagem.trechoDesvio = [];
+        await salvarBanco();
+        return { ocorrenciaId: null };
+      }
+
+      const linha = buscarLinha(viagem.linha);
+      const local = viagem.trechoDesvio[0] ?? viagem.ultimaPosicao ?? linha.trajeto[0];
+      const ocorrenciaId = await dep.registrarDesvio(db, usuario.id, linha, local);
+
+      viagem.foraDoTrajeto = 0;
+      await salvarBanco();
+      return { ocorrenciaId };
+    },
+
+    async encerrarViagem(viagemId) {
+      const db = await simularRede();
+      const usuario = { id: dep.uid(db) };
+      db.viagens = db.viagens.filter((v) => !(v.id === viagemId && v.uid === usuario.id));
+      await salvarBanco();
+    },
+  };
+}
+
+/** RN-TAV-07 no banco mock. */
+async function desvioNoMock(
+  db: BancoMock,
+  uid: string,
+  linha: LinhaSemente,
+  local: Coordenada,
+): Promise<string> {
+  const usuario = { id: uid };
+  const agora = new Date().toISOString();
+  const evento = {
+    tipo: 'DESVIO_DETECTADO' as const,
+    descricao: `Desvio de rota confirmado por passageiro na linha ${linha.codigo}`,
+    em: agora,
+  };
+
+  // RN-TAV-07: cria ou reforça a ocorrência "Alteração de rota sem aviso" da linha.
+  let ocorrencia = db.ocorrencias.find(
+    (o) =>
+      o.estado !== 'CONCLUIDA' &&
+      o.categoria === 'TRANSPORTE' &&
+      o.tipo === 'ALTERACAO_ROTA_SEM_AVISO' &&
+      o.linha?.codigo === linha.codigo,
+  );
+
+  if (ocorrencia) {
+    ocorrencia.linhaDoTempo = [...ocorrencia.linhaDoTempo, evento];
+    if (!ocorrencia.afetadosIds.includes(usuario.id)) {
+      ocorrencia.afetadosIds = [...ocorrencia.afetadosIds, usuario.id];
+      registrarNovoAfetado(ocorrencia, agora);
     }
+    ocorrencia.ultimaAtividadeEm = agora;
+  } else {
+    const nova: OcorrenciaMock = {
+      id: novoId(),
+      categoria: 'TRANSPORTE',
+      tipo: 'ALTERACAO_ROTA_SEM_AVISO',
+      estado: 'ABERTA',
+      rua: '',
+      bairro: `Linha ${linha.codigo}`,
+      localizacao: local,
+      descricao: `Desvio de rota detectado pelo Transporte ao vivo na linha ${linha.codigo} (${linha.nome}).`,
+      linha: { codigo: linha.codigo, nome: linha.nome },
+      dataHoraOcorrido: null,
+      fotos: [],
+      autorId: usuario.id,
+      criadaEm: agora,
+      ultimaAtividadeEm: agora,
+      concluidaEm: null,
+      conclusao: null,
+      afetadosIds: [usuario.id],
+      apoiadoresIds: [],
+      afetadosExtras: 0,
+      apoiosExtras: 0,
+      linhaDoTempo: [{ tipo: 'CRIADA', descricao: 'Ocorrência registrada', em: agora }, evento],
+    };
+    db.ocorrencias = [nova, ...db.ocorrencias];
+    ocorrencia = nova;
+  }
 
-    viagem.foraDoTrajeto = 0;
-    await salvarBanco();
-    return { ocorrenciaId: ocorrencia.id };
-  },
+  return ocorrencia.id;
+}
 
-  async encerrarViagem(viagemId) {
-    const db = await simularRede();
-    const usuario = exigirUsuario(db);
-    db.viagens = db.viagens.filter((v) => !(v.id === viagemId && v.uid === usuario.id));
-    await salvarBanco();
-  },
-};
+export const transporteMock: TransporteService = criarTransporteSimulado({
+  uid: (db) => exigirUsuario(db).id,
+  registrarDesvio: desvioNoMock,
+});

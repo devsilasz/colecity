@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import { useRef, useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
+import { useBloquearGestoAbas } from '@/components/navigation/CarrosselAbas';
 import MapView, { PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -54,6 +55,7 @@ export function SeletorLocal({ local, aoMudar, erro }: SeletorLocalProps) {
 
   const [aviso, setAviso] = useState<string | null>(null);
   const [mapaAberto, setMapaAberto] = useState(false);
+  useBloquearGestoAbas(mapaAberto);
   const [endereco, setEndereco] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [regiaoInicial, setRegiaoInicial] = useState<Region>(REGIAO_SAO_PAULO);

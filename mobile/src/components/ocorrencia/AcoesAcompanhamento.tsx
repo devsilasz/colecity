@@ -10,6 +10,7 @@ import { SectionTitle } from '@/components/ui/SectionTitle';
 import { useToast } from '@/context/ToastContext';
 import { ocorrenciaService } from '@/services';
 import { mensagemDeErro } from '@/services/erros';
+import { idEventoEstado, notificacoes } from '@/services/notificacoes';
 import { chaves, queryClient } from '@/services/queryClient';
 import { espacos } from '@/theme';
 import type { OcorrenciaDetalhe } from '@/types/ocorrencia';
@@ -31,6 +32,11 @@ export function AcoesAcompanhamento({ ocorrencia }: { ocorrencia: OcorrenciaDeta
     try {
       const atualizada = await ocorrenciaService.reabrir(ocorrencia.id);
       queryClient.setQueryData(chaves.ocorrencia(ocorrencia.id), atualizada);
+      void notificacoes.avisarEvento(
+        ocorrencia.id,
+        'reaberta',
+        idEventoEstado(ocorrencia.id, 'reaberta', atualizada.ultimaAtividadeEm),
+      );
       void queryClient.invalidateQueries({ queryKey: chaves.ocorrencias });
       void queryClient.invalidateQueries({ queryKey: chaves.mapa });
       mostrarToast('Ocorrência reaberta. Ela voltou para "Em acompanhamento".', 'sucesso');

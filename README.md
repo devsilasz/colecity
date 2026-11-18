@@ -1,144 +1,74 @@
 # Colecity
 
-CitizenTech colaborativa para relatar, acompanhar e se mobilizar em torno de problemas urbanos da cidade de São Paulo. Projeto da Global Solution 2026/2 (FIAP).
+**Colecity** (cidade coletiva) é uma CitizenTech colaborativa para a cidade de São Paulo. Moradores relatam problemas urbanos (transporte, água, energia, vias, árvores, segurança e riscos), veem no mapa onde eles se concentram e, em vez de reclamar sozinhos, se juntam a quem enfrenta o mesmo problema, como afetados ou apoiadores, acompanhando cada ocorrência ao longo do tempo.
+
+Projeto da **Global Solution 2026/2 · FIAP · Engenharia de Software**.
 
 > O Colecity não é um canal oficial da Prefeitura e não encaminha manifestações a órgãos públicos.
 
 ## Integrantes
 
-<!-- OBRIGATÓRIO: preencher com o nome completo e o RM de todos antes da entrega. -->
-
-| Nome completo | RM |
+| Nome | RM |
 |---|---|
-| _preencher_ | _preencher_ |
-| _preencher_ | _preencher_ |
-
-## Vídeo
-
-<!-- OBRIGATÓRIO: link do vídeo de até 3 minutos. -->
-
-_Link do vídeo: preencher._
+| Guilherme Oliveira | RM 558797 |
+| Matheus Dantas | RM 558804 |
+| Rafael Panhoca | RM 555014 |
+| Silas Alves | RM 555020 |
+| Victor Rodriguez | RM 559094 |
 
 ## Ficha da CitizenTech
 
-- **Nome:** Colecity.
-- **Cidade:** São Paulo, SP.
-- **Público:** moradores e usuários de serviços urbanos da cidade.
-- **Problema:** dificuldade de conhecer e reunir informações e manifestações sobre problemas urbanos compartilhados.
-- **Como funciona:** app em que o cidadão consulta, registra e acompanha ocorrências por categoria e localização, com participação coletiva.
-- **Tecnologias:** app React Native/Expo, BFF em Firebase Cloud Functions, API de domínio em C#/.NET, Firebase (Auth, Firestore, Storage, FCM), dados da SPTrans (GTFS e Olho Vivo).
-- **Indicadores:** ocorrências registradas, afetados e apoios por ocorrência, ocorrências concluídas, desvios de rota detectados.
-- **ODS:** 11 (Cidades e comunidades sustentáveis), 10 (Redução das desigualdades), 9 (Indústria, inovação e infraestrutura).
-
-## O que o app faz
-
-- **Explorar:** lista e mapa das ocorrências, com filtros de categoria, estado e distância, mapa de calor e Zonas de atenção. Aberto a visitantes.
-- **Registrar:** categoria, tipo e localização; sugestão de ocorrências semelhantes; formulário gerado por JSON, com fotos.
-- **Participar:** "Também estou sendo afetado" e "Apoiar manifestação", com contagens separadas; comentários com fotos; denúncia de conteúdo.
-- **Minhas:** o que registrei, o que me afeta e o que apoio, com indicador de novidade; concluir e reabrir.
-- **Transporte ao vivo:** trajeto e ônibus da linha, "Estou neste ônibus" e detecção de desvio de rota.
-- **Perfil:** conta, tema claro/escuro, notificações, termos e exclusão de conta.
-- **Offline:** as últimas leituras ficam em cache; registros, participações e comentários feitos sem conexão ficam "Aguardando envio" e são sincronizados depois.
-
-## Estado atual
-
-O app roda completo com **dados de demonstração (mock)**, que seguem o contrato da API de domínio (`docs/10-contrato-api-dominio.md`). A troca para a API real é feita por variável de ambiente, sem mudar as telas.
-
-| Parte | Situação |
+| Campo | Resposta |
 |---|---|
-| Telas, navegação, regras de negócio e offline | Prontas, sobre o mock |
-| Adaptadores HTTP para o BFF (Axios + interceptor) | Prontos; ligados com `EXPO_PUBLIC_USE_MOCK=false` |
-| Firebase (Auth, Firestore, Storage, FCM) e BFF | Ainda não integrados: login, dados do usuário e upload usam o mock/AsyncStorage |
-| API de domínio (C#) | Em desenvolvimento, fora deste app |
+| **Nome** | Colecity |
+| **Cidade** | São Paulo, SP |
+| **Cidadão beneficiado** | Moradores e usuários de serviços urbanos da cidade |
+| **Problema** | Reclamações sobre problemas urbanos ficam isoladas: as pessoas não sabem o que está acontecendo agora, qual a extensão do problema nem quem mais é afetado |
+| **Como funciona** | O cidadão consulta, registra e acompanha ocorrências por categoria e localização; ocorrências semelhantes são sugeridas antes de criar uma nova; participação separada entre "afetado" e "apoio"; comentários, linha do tempo e notificações; no transporte, os relatos são cruzados com os ônibus em tempo real da SPTrans |
+| **Indicadores** | Ocorrências registradas, afetados e apoios por ocorrência, ocorrências concluídas, relatos cruzados com a SPTrans |
+| **ODS** | 11 (cidades e comunidades sustentáveis), 10 (redução das desigualdades), 9 (indústria, inovação e infraestrutura) |
 
-## Tecnologias
+## Como o projeto está organizado
 
-- Expo SDK 58, React Native 0.88, React 19, TypeScript estrito (sem `any`).
-- Expo Router (abas + pilhas), Context API, hooks customizados.
-- Axios com interceptors, TanStack Query com cache persistido no AsyncStorage.
-- react-native-maps, expo-location, expo-image-picker, expo-image-manipulator (fotos em WebP).
+```
+backend/     API REST em C#/.NET 10: regras de negócio, banco (EF Core), integração SPTrans Olho Vivo
+mobile/      App React Native/Expo do cidadão: Firebase Authentication + Cloud Firestore
+push-api/    API de notificações push (Node + TypeScript, Vercel)
+docs/        Documentação do produto: visão, regras de negócio, arquitetura, features e casos de teste
+```
+
+| Parte | O que é | Detalhes |
+|---|---|---|
+| **App mobile** | Porta de entrada do cidadão: explorar no mapa e em lista, registrar, participar, comentar, acompanhar, transporte ao vivo e perfil | [`mobile/README.md`](mobile/README.md) |
+| **API de push** | Valida o usuário, calcula no servidor quem deve ser avisado e envia as notificações (Android) | [`push-api/README.md`](push-api/README.md) |
+| **Backend C#** | Camada de serviços: domínio de ocorrências, persistência, documentação OpenAPI, testes e cruzamento dos relatos de transporte com a SPTrans | [`backend/README.md`](backend/README.md) |
+| **Documentação** | Regras de negócio, arquitetura e especificação usadas no desenvolvimento e nos testes | [`docs/README.md`](docs/README.md) |
+
+## Entregas por disciplina
+
+| Disciplina | Onde está |
+|---|---|
+| **Mobile Development & IoT** | [`mobile/`](mobile/README.md) — app Expo, README com Ficha, como rodar, prints e vídeo |
+| **C# Software Development** | [`backend/`](backend/README.md) — Web API, EF Core, LINQ, async, testes |
+| **Arquitetura Orientada a Serviços (SOA) e Web Services** | [`backend/`](backend/README.md) — domínio, banco, migrations, documentação automática e testes |
+| **Testing, Compliance & Quality Assurance** | Projeto no Azure DevOps (Épicos, Features e Casos de Teste de Homologação): https://dev.azure.com/RM559094/Colecity · especificação em [`docs/11-features.md`](docs/11-features.md) e [`docs/12-test-cases.md`](docs/12-test-cases.md) |
+
+## Vídeos
+
+- **App rodando (Mobile, até 3 min):** _a preencher_
+- **Pitch (até 4 min):** _a preencher_
 
 ## Como rodar
 
-Pré-requisitos: Node.js 20 ou mais novo e o app **Expo Go** no celular (ou um emulador).
+Cada parte roda de forma independente; o passo a passo completo está no README de cada pasta.
 
 ```bash
-cd mobile
-npm install
-npm start
+# App mobile (Node 20+ e Expo Go no celular)
+cd mobile && npm install && npm start
+
+# Backend C# (.NET 10)
+cd backend && dotnet run --project src/Colecity.Api   # documentação em http://localhost:5080/scalar
+
+# API de push (Node 20+)
+cd push-api && npm install && npx vercel dev
 ```
-
-Leia o QR code com o Expo Go. Nenhuma configuração é necessária: o arquivo `mobile/.env` já vem com o mock ligado.
-
-**Conta de demonstração:** `ana@colecity.app` / `colecity123` (há um botão "Preencher" na tela de login). "Entrar com Google" usa uma conta simulada.
-
-### Variáveis de ambiente
-
-Os nomes estão em `mobile/.env.example`. Valores locais vão em `mobile/.env.local`, que não é versionado.
-
-| Variável | Para quê |
-|---|---|
-| `EXPO_PUBLIC_USE_MOCK` | `true` usa o mock; `false` usa o BFF |
-| `EXPO_PUBLIC_BFF_URL` | URL base do BFF |
-| `EXPO_PUBLIC_MOCK_ERROR_RATE` | Chance (0 a 1) de o mock falhar, para ver as telas de erro |
-| `GOOGLE_MAPS_ANDROID_API_KEY`, `GOOGLE_MAPS_IOS_API_KEY`, `GOOGLE_SERVICES_JSON` | Só para o build próprio (APK) |
-
-### Gerar o APK
-
-O passo a passo do development build (Google Maps com chave própria e push) está em [`docs/14-build-apk.md`](docs/14-build-apk.md).
-
-### Verificações
-
-```bash
-cd mobile
-npm run typecheck   # TypeScript
-npm run lint        # ESLint
-npm run doctor      # expo-doctor
-```
-
-## Estrutura de pastas
-
-```
-docs/                     requisitos, regras de negócio, arquitetura e contrato da API
-mobile/
-  app/                    rotas (Expo Router)
-    (auth)/               login, cadastro, recuperar senha, termos
-    (tabs)/               explorar, registrar, transporte, minhas, perfil
-  src/
-    components/           ui, feedback, ocorrencia, mapa, registro, transporte, perfil, auth
-    config/               ambiente, categorias, formulários (JSON), termos
-    context/              Auth, Theme, Toast, Registro, Viagem
-    hooks/                useAuth, useOcorrencias, useParticipacao, useComentarios, useViagem...
-    services/             api.ts (Axios), contratos, mock/, http/, fila offline, cache
-    mocks/                dados de demonstração
-    theme/                cores, tipografia, espaçamentos
-    types/                modelos do contrato
-    utils/                datas, distâncias, validações
-```
-
-## O que aplicamos do semestre
-
-| Conteúdo | Onde está |
-|---|---|
-| TypeScript sem `any` | Todo o projeto |
-| Componentização e ESModules | `src/components`, `src/services`, `src/hooks` |
-| Navegação por abas e stack | Expo Router: cinco abas, cada uma com sua pilha |
-| Context API | Autenticação, tema, rascunho do registro e viagem ativa |
-| Hooks customizados, `useMemo`, `useCallback` | `useOcorrencias`, `useParticipacao`, `useComentarios`, `useViagem`, filtros e mapa |
-| AsyncStorage | Tema, filtros, cache das consultas, fila offline e dados do usuário |
-| Axios, service layer e interceptors | `src/services/api.ts` (token, 401, 429, offline) e `src/services/http/` |
-| TanStack Query | Leituras com cache persistido, retry e modo offline |
-| Loading, erro, retry e estado vazio | Todas as telas |
-| Formulário dinâmico por JSON | `src/config/formularios.ts` + `DynamicField` |
-| Tema claro/escuro | Perfil → Aparência |
-| Acessibilidade | Rótulos para leitor de tela, áreas de toque de 44 pt, fonte do sistema, nada só por cor |
-
-## Prints
-
-<!-- OBRIGATÓRIO: adicionar as imagens em docs/prints/ e referenciar aqui. -->
-
-_Adicionar prints de: Explorar (lista e mapa), detalhe da ocorrência, Registrar, Minhas, Transporte ao vivo e Perfil (tema claro e escuro)._
-
-## Documentação
-
-O índice está em [`docs/README.md`](docs/README.md). Os documentos de referência são as regras de negócio (07), a arquitetura (08), a stack do app (09) e o contrato da API (10).

@@ -21,7 +21,7 @@ import type { LinhaRef } from '@/types/transporte';
  * RN-TAV-04: a posição é enviada a cada 1 minuto.
  * Com mock, o intervalo cai para 10 s só para o fluxo de desvio caber em uma demonstração.
  */
-export const INTERVALO_POSICAO_MS = env.usarMock ? 10 * 1000 : 60 * 1000;
+export const INTERVALO_POSICAO_MS = env.transporteSimulado ? 10 * 1000 : 60 * 1000;
 
 export interface ViagemAtiva {
   viagemId: string;

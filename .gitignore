@@ -1,0 +1,6 @@
+# Arquivos locais de agente/editor (fora do Git)
+CLAUDE.md
+PROMPT-*.md
+mobile/AGENTS.md
+mobile/.claude/
+mobile/.vscode/

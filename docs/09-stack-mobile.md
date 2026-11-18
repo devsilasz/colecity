@@ -36,20 +36,25 @@ App da jornada do cidadão. Regras em [07](07-regras-de-negocio-produto.md); arq
 - Feedback visual ao salvar/enviar.
 - **Acesso sem login:** o app abre direto em Explorar. Explorar, a consulta do Transporte, Sobre e os termos ficam abertos a visitantes. Registrar, Minhas e os dados da conta exibem o convite "Entre para continuar" (componente `AuthGate`), com atalhos para Entrar e Criar conta. Depois do login, o usuário volta para a tela de onde veio.
 - **Explorar:** alterna entre lista e mapa pelo botão do cabeçalho. Os filtros de categoria e estado ficam salvos no AsyncStorage; o de distância não (depende da posição atual) e some se a localização for negada.
-- **Mapa:** duas camadas, "Ocorrências" (marcador maior = mais participação) e "Mapa de calor" (sempre com o número de afetados por área). As Zonas de atenção aparecem nas duas, com o total de relatos. O mapa carrega até 50 ocorrências (limite de página do doc 10), as de maior participação. Sem Google Maps (iOS no Expo Go), o calor vira círculos com número.
+- **Mapa:** duas camadas, "Ocorrências" (marcador maior = mais participação) e "Mapa de calor" (sempre com o número de afetados por área). As Zonas de atenção aparecem nas duas, com o total de relatos. O mapa carrega até 50 ocorrências (limite de página do doc 10), as de maior participação. Ocorrências com a mesma localização aproximada (a menos de ~11 m, comum em Segurança, que não agrupa semelhantes — RN-SEM-04) têm os marcadores distribuídos em um círculo de 30 m ou mais em volta do ponto, para não ficarem sobrepostos; o mapa de calor e as Zonas de atenção continuam usando o ponto original. Sem Google Maps (iOS no Expo Go), o calor vira círculos com número. Os marcadores com texto ou ícone usam o hook `useRedesenhoMarcadores`: `tracksViewChanges` fica ligado por cerca de 1 s sempre que o desenho muda e depois desliga; ligado só no início, o Android fotografava o marcador antes de o texto e a fonte de ícones aparecerem e ele ficava vazio.
 - **Detalhe:** menu "Mais ações" (só com login) com editar (autor), silenciar notificações da ocorrência e denunciar. Fotos abrem em tela cheia, com "Denunciar foto".
 - **Participação:** apoiar pede confirmação avisando que o nome fica público (exceto em Segurança, que não tem lista); retirar afetado ou apoio também pede confirmação. Visitante que toca nos botões vai para o login.
 - **Comentários:** tela própria, leitura aberta; links são tocáveis, com aviso de que não são verificados. Comentários na fila offline aparecem no fim da lista como "Aguardando envio".
 - **Editar ocorrência:** só online (não entra na fila offline).
-- **Minhas:** três abas em um seletor; as três são carregadas para o ponto de "novidade" aparecer em cada aba. Registros feitos offline aparecem no topo de "Registradas por mim" como "Aguardando envio"; se o servidor recusar, mostram o motivo com "Tentar novamente" e "Descartar".
+- **Minhas:** três abas em um seletor; as três são carregadas para o ponto de "novidade" aparecer em cada aba. O ponto da aba some quando ela é aberta (a aba aberta nunca mostra o ponto e, ao sair, as novidades que estavam na lista ficam como vistas até o app ser fechado); o selo de "novidade" de cada ocorrência continua até ela ser aberta (RN-MIN-04).
+- **Troca de aba por gesto (carrossel):** na raiz de cada aba, arrastar a tela para os lados leva à aba vizinha, na ordem da tab bar, com as duas telas acompanhando o dedo (`CarrosselAbas`: as páginas são desenhadas a partir de `Navigator.useContext()` e posicionadas pelo nome, na ordem da tab bar, porque o estado das abas do expo-router só lista as já visitadas, na ordem da visita; `usePanGesture` do `react-native-gesture-handler` e Reanimated, fora da thread do JavaScript). Para isso as cinco abas ficam montadas desde a abertura do app e o layout raiz tem `GestureHandlerRootView`. O gesto fica suspenso nas telas empilhadas, onde há mapa aberto (`useBloquearGestoAbas`: Explorar em modo mapa e o mapa do Registrar) e enquanto o dedo está na barra de filtros (`gestoAbas`). A tab bar continua sendo o caminho para leitor de tela.
 - **Novidade (RN-MIN-04):** a ocorrência é marcada quando `ultimaAtividadeEm` é posterior à última visita do usuário (`lastSeenAt`), ou quando ele acompanha e nunca abriu. A visita é registrada ao abrir o detalhe e ao marcar participação.
 - **Concluir e reabrir:** aparecem no detalhe, no bloco "Acompanhamento", só para quem pode (`podeConcluir`, `podeReabrir`). Concluir abre `[id]/concluir.tsx` (feedback e fotos opcionais) e pede confirmação; reabrir pede confirmação no próprio detalhe. As duas ações são só online.
 - **Transporte ao vivo:** a busca e a tela da linha são abertas a visitantes; "Estou neste ônibus" exige login e confirmação. A tela da linha traz o mapa (trajeto oficial, ônibus SPTrans e relatados por passageiros) e a mesma informação em lista, atualizada a cada 15 s.
 - **Viagem ativa:** fica no `ViagemContext`, no layout raiz, e continua valendo em qualquer tela enquanto o app está aberto (sem segundo plano, RN-TAV-08). Um cartão na aba Transporte lembra que a localização está sendo compartilhada e permite encerrar. Termina quando o usuário encerra, sai da conta, passam 2 horas ou o servidor responde `ativa: false`.
 - **Desvio de rota:** a pergunta "O ônibus mudou de rota?" aparece em qualquer tela; ao confirmar, o app abre a ocorrência criada ou reforçada.
-- **Intervalo de envio da posição:** 1 minuto (RN-TAV-04). Com `EXPO_PUBLIC_USE_MOCK=true` cai para 10 segundos, só para o fluxo de desvio caber em uma demonstração; o mock também simula a posição quando o aparelho está a mais de 2 km da linha.
+- **Intervalo de envio da posição:** 1 minuto (RN-TAV-04). Enquanto o transporte é simulado no app (fontes `firestore` e `mock`), cai para 10 segundos, só para o fluxo de desvio caber em uma demonstração; a simulação também troca a posição quando o aparelho está a mais de 2 km da linha.
 - **Sair da conta:** pede confirmação e descarta as ações "Aguardando envio" daquele usuário no aparelho.
-- **Com mock ativo**, a tela de login mostra a conta de demonstração e "Entrar com Google" usa uma conta simulada.
+- **Com a fonte `mock`**, a tela de login mostra a conta de demonstração e "Entrar com Google" usa uma conta simulada. Com `firestore`, o botão do Google avisa que o recurso depende do APK.
+- **Fonte de dados (`EXPO_PUBLIC_DATA_SOURCE`):** `firestore` (padrão) usa Firebase Authentication + Cloud Firestore direto do app, com as regras de negócio aplicadas nos adaptadores de `src/services/firestore/` e conferidas pelas regras de segurança (`mobile/firestore.rules`); `mock` usa dados no aparelho; `bff` usa a API própria. É uma solução para a entrega de Mobile enquanto o BFF e a API de domínio não existem: a arquitetura alvo continua sendo a do doc 08. Estrutura do banco, limitações (sem Storage, sem encerramento automático, ponto exato legível no banco) e passo a passo estão em `mobile/README.md`.
+- **Troca de e-mail com Firebase:** a troca só vale depois que a pessoa confirma pelo link enviado ao novo endereço; o app avisa "enviamos um link de confirmação".
+- **Tempo real:** o detalhe da ocorrência e os comentários usam listeners do Firestore, removidos ao fechar a tela.
+- **Foto que não carrega** mostra a imagem padrão "Foto indisponível".
 - Tema **light e dark** em todas as telas, preferência salva no AsyncStorage.
 - Acessibilidade conforme RN-GER-01 a RN-GER-05 (`accessibilityLabel`, `accessibilityRole`, áreas de toque ≥ 44 pt, fonte do sistema, contraste AA).
 
@@ -226,3 +231,42 @@ Após registrar: online, abre o detalhe da ocorrência criada; offline, o regist
 | Upload de imagens com permissões | Fotos de ocorrências e comentários (Storage) |
 | Push com FCM via API própria | BFF calcula destinatários e envia; deep link para a ocorrência |
 | Tema light/dark | Perfil |
+
+## Nota — build, Maps e push (17/11/2026)
+
+- **Variáveis:** `mobile/.env` deixou de ser versionado (o `.gitignore` ignora `.env` e `.env.*`, menos `.env.example`). A chave do Maps é `API_KEY_MAPS` (antes `GOOGLE_MAPS_ANDROID_API_KEY`), lida no `app.config.ts` para `android.config.googleMaps.apiKey`; no EAS ela é cadastrada com `eas env:create`.
+- **Push no app:** `src/services/notificacoes.ts` e `src/hooks/useNotificacoesPush.ts`. O `expo-notifications` é carregado sob demanda, só no Android fora do Expo Go e com a fonte `firestore`; nos demais casos tudo vira "não faz nada". Permissão pedida após o primeiro registro ou participação (RN-NOT-01); Expo push token gravado em `users/{uid}/devices/{deviceId}`; aparelho desativado no logout e apagado na exclusão da conta; toque abre `/explorar/[id]`; o Perfil explica permissão negada e aparelho sem token.
+- **Aviso de eventos:** após comentar (inclusive pela fila offline), concluir ou reabrir, o app chama `POST /notificar` da API de push (`EXPO_PUBLIC_PUSH_API_URL`) com o ID token. O `eventoId` é o id do comentário ou `<ocorrenciaId>_<concluida|reaberta>_<data>`. Falha é silenciosa.
+- **Regras do Firestore:** `devices` só o dono; `eventosProcessados` e `pushControle` fechados para qualquer cliente.
+- **Fora do escopo:** push de desvio de rota confirmado (RN-NOT-02) e agrupamento posterior dos comentários que caem no limite de 30 minutos.
+
+## Nota — login com Google (17/11/2026)
+
+- Biblioteca `@react-native-google-signin/google-signin` (plugin no `app.config.ts`, modo Firebase: lê o `google-services.json`). Carregada sob demanda em `src/services/googleNativo.ts`, só fora do Expo Go; no Expo Go resolve como `RECURSO_INDISPONIVEL` e a tela de login mostra o aviso de sempre.
+- `webClientId` = cliente OAuth do tipo web (`client_type: 3`) lido do `google-services.json`.
+- Fluxo (`authFirebase.entrarComGoogle`): seletor de conta → `idToken` → `signInWithCredential`. Se `users/{uid}` ainda não tem aceite dos termos, a sessão é encerrada e a tela pede o aceite (RN-CON-11); o `idToken` fica em memória para a segunda chamada não pedir a conta de novo. Cancelar o seletor não mostra erro.
+- Conta só Google: `definirSenha` usa `linkWithCredential` com o e-mail do Google (RN-CON-13); exclusão confirma com novo login Google na mesma conta (`reauthenticateWithCredential`; outra conta = credenciais inválidas) (RN-CON-08). O logout também encerra a sessão do Google no aparelho.
+- Depende da SHA-1 do keystore do EAS cadastrada no Firebase (doc 14 §4.3.1).
+
+## Nota — APK fechando ao abrir (17/11/2026)
+
+O primeiro APK fechava antes da primeira tela: o R8, ligado por padrão no build de release do SDK 58, removia a classe gerada do banco interno do WorkManager (`WorkDatabase_Impl`, usado por `expo-notifications` e Google Play Services). Correção em `app.config.ts` com `expo-build-properties`: `enableMinifyInReleaseBuilds: false` e `enableShrinkResourcesInReleaseBuilds: false` (APK um pouco maior), e regras `-keep` para as classes do Room caso a minificação volte a ser ligada.
+
+## Nota — laço no token de push (17/11/2026)
+
+No primeiro APK, pedir o Expo push token fazia o Android emitir o evento de token novo, e o listener do app pedia o token de novo: cerca de 13 consultas por segundo, cada uma regravando `users/{uid}/devices`. Correção em `src/services/notificacoes.ts`: o listener só reage a um token diferente do último visto, e o aparelho só é regravado quando a conta ou o token mudam.
+
+## Nota — conclusão com erro e outro aparelho desatualizado (17/11/2026)
+
+- **Sintoma:** ao concluir, quem concluiu via um erro, mas a ocorrência ficava concluída; no outro aparelho continuava aberta.
+- **Causa 1:** o `concluir` (e o `reabrir`) gravava e só depois fazia leituras extras para montar o detalhe; com a conexão instável essas leituras falhavam e o erro aparecia para uma ação já gravada. Agora o detalhe é montado antes de gravar.
+- **Causa 2:** no React Native o canal de streaming padrão do Firestore (WebChannel) caía ("transport errored") e os listeners paravam. `src/services/firebase.ts` usa `initializeFirestore` com `experimentalForceLongPolling: true`.
+- **Causa 3:** o listener do detalhe só atualizava a própria tela. Agora também invalida o cache em memória do Firestore, as listas, Minhas e o mapa.
+
+## Nota — fotos no Vercel Blob (17/11/2026)
+
+- Decisão: sem plano Blaze (sem Firebase Storage) e sem projeto livre no Supabase, as fotos vão para o **Vercel Blob**, no mesmo projeto da API de push (`push-api/`).
+- Fluxo: `uploadNuvem` (`src/services/firestore/upload.local.ts`) envia a foto WebP para `POST /fotos?destino=…` com o ID token; a API valida login, assinatura WebP e tamanho (≤ 2 MB), grava em `{destino}/{uid}/{id}.webp` (público) e devolve `{ id, path, url }`. O Firestore guarda só caminho e URL.
+- Escolha do adaptador em `services/index.ts`: com `EXPO_PUBLIC_PUSH_API_URL` usa `uploadNuvem`; sem ela, `uploadLocal` (fotos só no aparelho).
+- Falha de rede no envio vira `OFFLINE`: a ação vai para a fila offline e a foto sobe depois.
+- Fora do escopo: apagar fotos do Blob ao excluir a conta (fazem parte das ocorrências, que permanecem anonimizadas).

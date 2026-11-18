@@ -12,6 +12,7 @@ import type {
 import type { DestinoFoto, FotoLocal } from './contratos';
 import { ehErroApi, erroDefinitivo, mensagemDeErro } from './erros';
 import { comentarioService, ocorrenciaService, participacaoService, uploadService } from './index';
+import { notificacoes } from './notificacoes';
 import { CHAVES, lerJson, salvarJson } from './storage';
 
 /**
@@ -66,12 +67,16 @@ export async function executarAcao(acao: AcaoOffline, idempotencyKey: string): P
     case 'CRIAR_OCORRENCIA': {
       const fotos = await enviarFotos(acao.fotosLocais, 'ocorrencias');
       const ocorrencia = await ocorrenciaService.criar({ ...acao.dados, fotos }, idempotencyKey);
+      // RN-NOT-01: a permissão de notificação é pedida após o primeiro registro.
+      void notificacoes.registrarAparelho({ pedir: true });
       return { tipo: acao.tipo, ocorrencia };
     }
     case 'PARTICIPAR': {
       const resposta = acao.marcar
         ? await participacaoService.marcar(acao.ocorrenciaId, acao.participacao)
         : await participacaoService.retirar(acao.ocorrenciaId, acao.participacao);
+      // RN-NOT-01: ...ou após a primeira participação.
+      if (acao.marcar) void notificacoes.registrarAparelho({ pedir: true });
       return { tipo: acao.tipo, resposta };
     }
     case 'COMENTAR': {
@@ -81,6 +86,8 @@ export async function executarAcao(acao: AcaoOffline, idempotencyKey: string): P
         { texto: acao.texto, fotos },
         idempotencyKey,
       );
+      // Comentário já gravado (também quando sai da fila offline): avisa a API de push.
+      void notificacoes.avisarEvento(acao.ocorrenciaId, 'comentario', comentario.id);
       return { tipo: acao.tipo, comentario };
     }
   }

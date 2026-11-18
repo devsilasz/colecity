@@ -98,9 +98,14 @@ function CartaoEmail({ usuario, temSenha }: { usuario: UsuarioAuth; temSenha: bo
 
     setSalvando(true);
     try {
-      await alterarEmail(email, senha);
+      const resultado = await alterarEmail(email, senha);
       setSenha('');
-      mostrarToast('E-mail atualizado.', 'sucesso');
+      if (resultado === 'CONFIRMACAO_ENVIADA') {
+        setEmail(usuario.email);
+        mostrarToast('Enviamos um link de confirmação para o novo e-mail. A troca vale depois que você abrir o link.');
+      } else {
+        mostrarToast('E-mail atualizado.', 'sucesso');
+      }
     } catch (falha) {
       const mensagem = mensagemDeErro(falha);
       if (ehErroApi(falha) && falha.code === 'SENHA_INCORRETA') setErroSenha(mensagem);

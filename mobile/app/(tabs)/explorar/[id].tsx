@@ -30,6 +30,7 @@ import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useEstadoOcorrenciaUsuario } from '@/hooks/useEstadoOcorrenciaUsuario';
 import { pendentesDaOcorrencia, useFilaOffline } from '@/hooks/useFilaOffline';
+import { useOcorrenciaAoVivo } from '@/hooks/useTempoReal';
 import { useApoiadores, useLinhaDoTempo, useOcorrencia } from '@/hooks/useOcorrencia';
 import { ehErroApi, mensagemDeErro } from '@/services/erros';
 import { espacos } from '@/theme';
@@ -247,6 +248,7 @@ export default function OcorrenciaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const consulta = useOcorrencia(id ?? '');
   const estadoUsuario = useEstadoOcorrenciaUsuario(usuario?.uid ?? null, id ?? '');
+  useOcorrenciaAoVivo(id ?? '');
 
   const [acoesAbertas, setAcoesAbertas] = useState(false);
   const [denuncia, setDenuncia] = useState<AlvoDenuncia | null>(null);

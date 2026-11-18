@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "358672149725",
+    "project_id": "colecity-6dcaf",
+    "storage_bucket": "colecity-6dcaf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:358672149725:android:eeaba85c69d6b02887bf34",
+        "android_client_info": {
+          "package_name": "com.colecity.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "358672149725-d4jer6n4bueg1apf6cail946tbk6mtg9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.colecity.app",
+            "certificate_hash": "d4eabd9c05d33f42dc5df3fbccfad600863546ab"
+          }
+        },
+        {
+          "client_id": "358672149725-9ubh5go5qge8guir44jdm3jf756ci97e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhC_Pyp1Kf98LXeXZj_L4lO7ZYcD4bcec"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "358672149725-9ubh5go5qge8guir44jdm3jf756ci97e.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

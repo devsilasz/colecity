@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ExplorarMapa } from '@/components/mapa/ExplorarMapa';
+import { useBloquearGestoAbas } from '@/components/navigation/CarrosselAbas';
 import { FilterBar } from '@/components/ocorrencia/FilterBar';
 import { FiltrosSheet } from '@/components/ocorrencia/FiltrosSheet';
 import { ListaOcorrencias } from '@/components/ocorrencia/ListaOcorrencias';
@@ -31,6 +32,8 @@ export default function ExplorarScreen() {
 
   const [modo, setModo] = useState<Modo>('lista');
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  // No mapa, arrastar para os lados move o mapa, não troca de aba.
+  useBloquearGestoAbas(modo === 'mapa');
 
   const abrir = useCallback(
     (id: string) => router.push({ pathname: '/explorar/[id]', params: { id } }),

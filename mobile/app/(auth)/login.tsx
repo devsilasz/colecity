@@ -14,7 +14,7 @@ import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useSairDoLogin } from '@/hooks/useSairDoLogin';
 import { CONTA_DEMO } from '@/mocks/usuarios';
-import { mensagemDeErro } from '@/services/erros';
+import { ehErroApi, mensagemDeErro } from '@/services/erros';
 import { espacos } from '@/theme';
 import { VERSAO_TERMOS } from '@/types/usuario';
 import { emailValido } from '@/utils/validacoes';
@@ -80,7 +80,13 @@ export default function LoginScreen() {
       fechar();
     } catch (erro) {
       setContaGoogle(null);
-      setErroGeral(mensagemDeErro(erro));
+      // Fechar a escolha de conta do Google não é erro.
+      if (ehErroApi(erro) && erro.code === 'LOGIN_CANCELADO') return;
+      setErroGeral(
+        ehErroApi(erro) && erro.code === 'RECURSO_INDISPONIVEL'
+          ? 'Entrar com Google estará disponível na versão instalada por APK. Por enquanto, use e-mail e senha.'
+          : mensagemDeErro(erro),
+      );
     } finally {
       setEnviandoGoogle(false);
     }

@@ -9,10 +9,15 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  *
  * Passo a passo completo em `docs/14-build-apk.md`.
  */
-const GOOGLE_MAPS_ANDROID_API_KEY = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
+/** Chave da Maps SDK for Android. Local: `.env.local`; no EAS: variável do ambiente do perfil. */
+const API_KEY_MAPS = process.env.API_KEY_MAPS;
 const GOOGLE_MAPS_IOS_API_KEY = process.env.GOOGLE_MAPS_IOS_API_KEY;
 
-/** Caminho do google-services.json (FCM). Local: ./google-services.json; no EAS: variável do tipo arquivo. */
+/**
+ * Caminho do `google-services.json` do Firebase (FCM, necessário para o push no Android).
+ * O arquivo é configuração pública do cliente e fica versionado em `mobile/google-services.json`;
+ * os perfis do `eas.json` apontam para ele. Sem a variável o build funciona, mas sem push.
+ */
 const GOOGLE_SERVICES_JSON = process.env.GOOGLE_SERVICES_JSON;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
@@ -38,6 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    ...(API_KEY_MAPS ? { config: { googleMaps: { apiKey: API_KEY_MAPS } } } : {}),
     ...(GOOGLE_SERVICES_JSON ? { googleServicesFile: GOOGLE_SERVICES_JSON } : {}),
   },
   plugins: [
@@ -64,11 +70,30 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         cameraPermission: 'O Colecity usa a câmera para fotografar o problema que você está relatando.',
       },
     ],
+    [
+      'expo-build-properties',
+      {
+        android: {
+          // O R8 (minificação do build de release) removia a classe gerada do banco interno do
+          // WorkManager (`WorkDatabase_Impl`, usado por notificações e Google Play Services) e o
+          // app fechava ao abrir. Sem minificação o APK fica um pouco maior, mas abre.
+          enableMinifyInReleaseBuilds: false,
+          enableShrinkResourcesInReleaseBuilds: false,
+          // Se a minificação for ligada no futuro, estas regras mantêm as classes do Room.
+          extraProguardRules: [
+            '-keep class * extends androidx.room.RoomDatabase { <init>(); }',
+            '-keep class androidx.work.impl.WorkDatabase_Impl { *; }',
+          ].join('\n'),
+        },
+      },
+    ],
     'expo-notifications',
+    // Login com Google (Android). Lê o `google-services.json` configurado acima.
+    '@react-native-google-signin/google-signin',
     [
       'react-native-maps',
       {
-        androidGoogleMapsApiKey: GOOGLE_MAPS_ANDROID_API_KEY,
+        androidGoogleMapsApiKey: API_KEY_MAPS,
         iosGoogleMapsApiKey: GOOGLE_MAPS_IOS_API_KEY,
       },
     ],

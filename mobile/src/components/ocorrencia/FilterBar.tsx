@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet } from 'react-native';
 
+import { gestoAbas } from '@/components/navigation/CarrosselAbas';
 import { Chip } from '@/components/ui/Chip';
 import { NOME_CATEGORIA } from '@/config/categorias';
 import { aparenciaCategoria, espacos } from '@/theme';
@@ -21,6 +22,10 @@ export function FilterBar({ filtros, quantidade, aoMudar, aoAbrirFiltros }: Filt
       horizontal
       showsHorizontalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      // Arrastar aqui rola os filtros; não troca de aba.
+      onTouchStart={gestoAbas.suspender}
+      onTouchEnd={gestoAbas.retomar}
+      onTouchCancel={gestoAbas.retomar}
       style={styles.rolagem}
       contentContainerStyle={styles.conteudo}>
       <Chip

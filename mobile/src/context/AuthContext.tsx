@@ -2,9 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { authService, userDataService, usuarioService } from '@/services';
 import { configurarAutenticacaoApi } from '@/services/api';
+import { invalidarCacheFirestore } from '@/services/firestore/base';
 import { filaOffline } from '@/services/offlineQueue';
+import { notificacoes } from '@/services/notificacoes';
 import { chaves, queryClient } from '@/services/queryClient';
 import type { DadosCadastro, UsuarioAuth } from '@/types/usuario';
+
+export type ResultadoTrocaEmail = 'ATUALIZADO' | 'CONFIRMACAO_ENVIADA';
 
 /** Resultado do login com Google visto pelas telas (RN-CON-11). */
 export type ResultadoGoogle = { tipo: 'SESSAO' } | { tipo: 'ACEITE_NECESSARIO'; nome: string; email: string };
@@ -21,7 +25,11 @@ interface AuthContextValue {
   recuperarSenha: (email: string) => Promise<void>;
   sair: () => Promise<void>;
   atualizarNome: (nome: string) => Promise<void>;
-  alterarEmail: (novoEmail: string, senhaAtual: string) => Promise<void>;
+  /**
+   * Troca o e-mail (RN-CON-07). Com o Firebase, a troca só vale depois que a pessoa confirma
+   * pelo link enviado ao novo endereço: nesse caso devolve `CONFIRMACAO_ENVIADA`.
+   */
+  alterarEmail: (novoEmail: string, senhaAtual: string) => Promise<ResultadoTrocaEmail>;
   alterarSenha: (senhaAtual: string, novaSenha: string) => Promise<void>;
   definirSenha: (novaSenha: string) => Promise<void>;
   /** Confirma a identidade e exclui a conta (RN-CON-08). `senha` só em conta com senha. */
@@ -32,6 +40,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 /** Os dados em cache trazem campos do usuário (ex.: `podeEditar`): ao trocar a sessão, tudo é refeito. */
 function renovarCache(): void {
+  invalidarCacheFirestore();
   queryClient.removeQueries({ queryKey: chaves.todasMinhas });
   queryClient.removeQueries({ queryKey: chaves.perfil });
   void queryClient.invalidateQueries();
@@ -125,6 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sair = useCallback(async () => {
     const uid = usuario?.uid ?? null;
+    // Antes de encerrar a sessão: este aparelho para de receber o push desta conta.
+    if (uid) await notificacoes.desativarAparelho(uid);
     await authService.sair();
     encerrarLocal(uid);
   }, [usuario, encerrarLocal]);
@@ -135,10 +146,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void queryClient.invalidateQueries({ queryKey: chaves.ocorrencias });
   }, []);
 
-  const alterarEmail = useCallback(async (novoEmail: string, senhaAtual: string) => {
+  const alterarEmail = useCallback(async (novoEmail: string, senhaAtual: string): Promise<ResultadoTrocaEmail> => {
     const atualizado = await authService.alterarEmail(novoEmail, senhaAtual);
-    await usuarioService.atualizarPerfil({ email: atualizado.email });
     setUsuario(atualizado);
+    // O e-mail ainda é o antigo: a troca depende da confirmação pelo link.
+    if (atualizado.email !== novoEmail.trim().toLowerCase()) return 'CONFIRMACAO_ENVIADA';
+    await usuarioService.atualizarPerfil({ email: atualizado.email });
+    return 'ATUALIZADO';
   }, []);
 
   const alterarSenha = useCallback(

@@ -8,8 +8,18 @@ import { Platform } from 'react-native';
  * PROD = development build / APK (`npm run start:prod`): Google Maps com chave própria e push (FCM).
  *
  * A troca é automática: o app detecta onde está rodando. Nenhum código muda.
- * Mock x API real é controlado por `EXPO_PUBLIC_USE_MOCK` (ver `.env.example`).
+ * A fonte de dados é controlada por `EXPO_PUBLIC_DATA_SOURCE` (ver `.env.example`):
+ * `firestore` (padrão) = Firebase Auth + Cloud Firestore; `mock` = dados de demonstração no aparelho;
+ * `bff` = API própria via Axios (doc 08 §11), para quando o BFF existir.
  */
+export type FonteDados = 'firestore' | 'mock' | 'bff';
+
+function lerFonteDados(): FonteDados {
+  const valor = process.env.EXPO_PUBLIC_DATA_SOURCE;
+  return valor === 'mock' || valor === 'bff' ? valor : 'firestore';
+}
+
+const fonteDados = lerFonteDados();
 const rodandoNoExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 function lerTaxaErro(): number {
@@ -22,9 +32,14 @@ const googleMapsIos = Constants.expoConfig?.extra?.googleMapsIos === true;
 export const env = {
   ambiente: rodandoNoExpoGo ? 'DEV' : 'PROD',
   rodandoNoExpoGo,
-  /** `true` (padrão) usa os adaptadores mock; `false` usa o BFF. */
-  usarMock: process.env.EXPO_PUBLIC_USE_MOCK !== 'false',
+  fonteDados,
+  /** Tudo mockado, inclusive login (conta de demonstração e Google simulado). */
+  usarMock: fonteDados === 'mock',
+  /** Transporte ao vivo é simulado no app enquanto o BFF (SPTrans) não existe. */
+  transporteSimulado: fonteDados !== 'bff',
   bffUrl: process.env.EXPO_PUBLIC_BFF_URL ?? '',
+  /** API de push (`push-api/`, na Vercel). Vazia = o app não avisa eventos. */
+  pushApiUrl: process.env.EXPO_PUBLIC_PUSH_API_URL ?? '',
   mockTaxaErro: lerTaxaErro(),
   recursos: {
     /** Push só no Android e fora do Expo Go (RN-NOT, doc 09 §4.4). */

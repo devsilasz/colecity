@@ -15,18 +15,19 @@ Como rodar o app em cada ambiente e como gerar o APK. Stack em [09](09-stack-mob
 
 **Não há código para trocar.** O app detecta sozinho onde está rodando (`src/config/env.ts`) e liga ou desliga push, login Google nativo e o provedor do mapa. Em Perfil → Sobre o Colecity → Ambiente aparece `DEV` ou `PROD`.
 
-Mock x API real é outra chave, independente do ambiente: `EXPO_PUBLIC_USE_MOCK` (`true` = dados mockados; `false` = BFF em `EXPO_PUBLIC_BFF_URL`).
+A fonte de dados é outra chave, independente do ambiente: `EXPO_PUBLIC_DATA_SOURCE` (`firestore` = Firebase Auth + Cloud Firestore, padrão; `mock` = dados de demonstração no aparelho; `bff` = API em `EXPO_PUBLIC_BFF_URL`).
 
 ## 2. Variáveis
 
-Nomes em `mobile/.env.example`. Valores locais vão em `mobile/.env.local` (ignorado pelo git). Nunca versionar valores reais.
+Nomes em `mobile/.env.example`. Valores locais vão em `mobile/.env.local`. Tanto `.env` quanto `.env.local` são ignorados pelo git; só o `.env.example` (apenas nomes) é versionado. Nunca versionar valores reais.
 
 | Variável | Usada em | Para quê |
 |---|---|---|
-| `EXPO_PUBLIC_USE_MOCK` | app | Mock (`true`) ou BFF (`false`) |
+| `EXPO_PUBLIC_DATA_SOURCE` | app | `firestore` (padrão), `mock` ou `bff` |
 | `EXPO_PUBLIC_BFF_URL` | app | URL base do BFF |
 | `EXPO_PUBLIC_MOCK_ERROR_RATE` | app | Chance (0 a 1) de o mock falhar, para testar telas de erro |
-| `GOOGLE_MAPS_ANDROID_API_KEY` | build | Chave do Maps SDK for Android |
+| `EXPO_PUBLIC_PUSH_API_URL` | app | URL pública da API de push (`push-api/`), sem barra no final |
+| `API_KEY_MAPS` | build | Chave do Maps SDK for Android |
 | `GOOGLE_MAPS_IOS_API_KEY` | build | Chave do Maps SDK for iOS (opcional; habilita mapa de calor no iOS) |
 | `GOOGLE_SERVICES_JSON` | build | Caminho do `google-services.json` (push/FCM) |
 
@@ -62,19 +63,38 @@ O build é feito na nuvem pelo EAS; não precisa de Android Studio.
 1. No [Google Cloud Console](https://console.cloud.google.com), no mesmo projeto do Firebase, ative **Maps SDK for Android**.
 2. Em **APIs e serviços → Credenciais**, crie uma **chave de API**.
 3. Restrinja a chave: aplicativos Android, pacote `com.colecity.app` e a impressão digital SHA-1 do app. A SHA-1 aparece em `npx eas-cli@latest credentials -p android` depois do primeiro build. Restrinja também à API "Maps SDK for Android".
-4. Cadastre a chave no EAS, nos ambientes `development` e `preview`, com o nome `GOOGLE_MAPS_ANDROID_API_KEY`: em expo.dev → projeto → **Environment variables**, ou pelo comando `npx eas-cli@latest env:create`.
+4. Cadastre a chave no EAS com o nome `API_KEY_MAPS`. O build roda na nuvem e **não lê o `.env` local**. Para o perfil `preview` (APK):
+   ```powershell
+   npx eas-cli@latest env:create --name API_KEY_MAPS --value "SUA_CHAVE" --environment preview --visibility sensitive
+   ```
+   Para o development build, repita com `--environment development`. Também dá para cadastrar em expo.dev → projeto → **Environment variables**.
 5. Para `npx expo run:android` local (opcional), coloque a mesma chave em `mobile/.env.local`.
 
 Sem a chave o build funciona, mas o mapa fica em branco.
 
-### 4.3 Push (FCM) — quando o Firebase for ligado
+### 4.3 Push (FCM)
 
-1. No console do Firebase, adicione um app **Android** com o pacote `com.colecity.app`.
-2. Baixe o `google-services.json` e salve em `mobile/google-services.json` (é configuração pública do cliente, pode ser versionado).
-3. Em `mobile/eas.json`, adicione `"GOOGLE_SERVICES_JSON": "./google-services.json"` no `env` dos perfis `development` e `preview`. Para uso local, a mesma linha em `.env.local`.
-4. Gere um novo build (mudança nativa).
+1. No console do Firebase → Configurações do projeto → Seus apps, adicione um app **Android** com o pacote `com.colecity.app`.
+2. Baixe o `google-services.json` e salve em `mobile/google-services.json` (é configuração pública do cliente e é versionado). Os perfis `development` e `preview` do `eas.json` já apontam para ele; **sem o arquivo o build falha**.
+3. Credencial do FCM V1 para o Expo enviar push: console do Firebase → Configurações do projeto → **Contas de serviço** → **Gerar nova chave privada**. Depois:
+   ```powershell
+   npx eas-cli@latest credentials
+   ```
+   Android → perfil → **Google Service Account** → **Manage your Google Service Account Key for Push Notifications (FCM V1)** → envie o JSON. Esse arquivo nunca vai para o repositório.
+4. Publique a API de push (`push-api/README.md`) e coloque a URL em `EXPO_PUBLIC_PUSH_API_URL`, no `env` dos perfis `development` e `preview` do `eas.json`.
+5. Publique as regras do Firestore (`mobile/firestore.rules`), que agora cobrem `devices`, `eventosProcessados` e `pushControle`.
+6. Gere um novo build (mudança nativa).
 
-O envio do push é feito pelo BFF (doc 08); o app só registra o token.
+O app registra o token e avisa a API de push quando alguém comenta, conclui ou reabre; quem recebe é decidido pela API (doc 08).
+
+### 4.3.1 Login com Google
+
+1. Depois do primeiro build, pegue a SHA-1: `npx eas-cli@latest credentials` → Android → perfil → **SHA1 Fingerprint**.
+2. Console do Firebase → Configurações do projeto → app Android → **Adicionar impressão digital** → cole a SHA-1.
+3. Baixe o `google-services.json` atualizado e substitua `mobile/google-services.json`.
+4. Gere um novo build.
+
+Sem a SHA-1 o login com Google falha com `DEVELOPER_ERROR`. Cada keystore tem a sua SHA-1: os perfis `development` e `preview` usam o mesmo keystore do EAS, então uma impressão digital basta.
 
 ### 4.4 Gerar e instalar
 
@@ -108,3 +128,5 @@ Gera um APK com o JavaScript embutido: funciona sem computador e sem servidor de
 | Push não chega | Rodando no Expo Go, `google-services.json` ausente no build ou permissão negada |
 | "No development build installed" | Rodou `start:prod` sem instalar o APK da seção 4.4 |
 | Mudou plugin ou chave e nada mudou | Falta gerar um novo build |
+| APK fecha ao abrir, log com `Failed to create an instance of class androidx.work.impl.WorkDatabase` | R8 (minificação) removeu classes do WorkManager. Já corrigido no `app.config.ts` (`expo-build-properties`: minificação desligada + regras de keep do Room); gerar um novo build |
+| APK fecha ao abrir (outro motivo) | Ligar o celular por USB com depuração ativa e ler o erro: `adb logcat -b crash` |

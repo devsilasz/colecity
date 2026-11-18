@@ -1,6 +1,18 @@
 {
   "expo": {
     "name": "Colecity",
-    "slug": "colecity"
+    "slug": "colecity",
+    "extra": {
+      "googleMapsIos": false,
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "28aa73c7-cd60-42f4-828a-be9be15ffd06"
+      }
+    },
+    "owner": "victordz.dev"
   }
 }

@@ -16,6 +16,7 @@ import { useToast } from '@/context/ToastContext';
 import { useOcorrencia } from '@/hooks/useOcorrencia';
 import { ocorrenciaService, uploadService } from '@/services';
 import { mensagemDeErro } from '@/services/erros';
+import { idEventoEstado, notificacoes } from '@/services/notificacoes';
 import { chaves, queryClient } from '@/services/queryClient';
 import { espacos } from '@/theme';
 import type { FotoRef, OcorrenciaDetalhe } from '@/types/ocorrencia';
@@ -42,6 +43,13 @@ function Formulario({ ocorrencia }: { ocorrencia: OcorrenciaDetalhe }) {
         fotos: refs,
       });
       queryClient.setQueryData(chaves.ocorrencia(ocorrencia.id), atualizada);
+      if (atualizada.concluidaEm) {
+        void notificacoes.avisarEvento(
+          ocorrencia.id,
+          'concluida',
+          idEventoEstado(ocorrencia.id, 'concluida', atualizada.concluidaEm),
+        );
+      }
       void queryClient.invalidateQueries({ queryKey: chaves.ocorrencias });
       void queryClient.invalidateQueries({ queryKey: chaves.mapa });
       setConfirmando(false);

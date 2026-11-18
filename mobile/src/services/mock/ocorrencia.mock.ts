@@ -1,5 +1,3 @@
-import * as Location from 'expo-location';
-
 import { CATALOGO_CATEGORIAS } from '@/config/categorias';
 import {
   estadoPorRegra,
@@ -10,11 +8,10 @@ import {
   uidAtual,
   type OcorrenciaMock,
 } from '@/mocks/banco';
-import { BAIRROS_REFERENCIA } from '@/mocks/ocorrencias';
 import { LINHAS_SEMENTE } from '@/mocks/transporte';
 import type { OcorrenciaService } from '@/services/contratos';
 import { ErroApi } from '@/services/erros';
-import type { Coordenada } from '@/types/api';
+import { geocodificar } from '@/services/geocodificacao';
 import { TIPOS_POR_CATEGORIA, type Categoria, type TipoOcorrencia } from '@/types/categoria';
 import type { EstadoOcorrencia } from '@/types/estado';
 import type { OcorrenciaSemelhante, PontoCalor } from '@/types/ocorrencia';
@@ -54,30 +51,6 @@ function porParticipacao(a: OcorrenciaMock, b: OcorrenciaMock): number {
     participacaoTotal(b) - participacaoTotal(a) ||
     new Date(b.ultimaAtividadeEm).getTime() - new Date(a.ultimaAtividadeEm).getTime()
   );
-}
-
-/** Simula a geocodificação reversa do domínio; em falha usa o bairro conhecido mais próximo. */
-async function geocodificar(ponto: Coordenada): Promise<{ rua: string; bairro: string }> {
-  const maisProximo = BAIRROS_REFERENCIA.reduce((melhor, atual) =>
-    distanciaMetros(ponto, atual) < distanciaMetros(ponto, melhor) ? atual : melhor,
-  );
-  try {
-    const limite = new Promise<null>((resolver) => setTimeout(() => resolver(null), 2500));
-    const resultado = await Promise.race([
-      Location.reverseGeocodeAsync({ latitude: ponto.lat, longitude: ponto.lng }),
-      limite,
-    ]);
-    const endereco = resultado?.[0];
-    if (endereco) {
-      return {
-        rua: endereco.street ?? '',
-        bairro: endereco.district ?? endereco.subregion ?? maisProximo.bairro,
-      };
-    }
-  } catch {
-    // Sem permissão ou sem serviço de geocodificação: segue com o bairro de referência.
-  }
-  return { rua: '', bairro: maisProximo.bairro };
 }
 
 export const ocorrenciaMock: OcorrenciaService = {

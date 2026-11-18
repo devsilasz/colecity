@@ -1,0 +1,256 @@
+rules_version = '2';
+
+// Regras de segurança do Colecity (Cloud Firestore).
+// Princípios: nenhuma regra aberta para escrita; cada pessoa só escreve o que é dela;
+// as contagens das ocorrências só mudam junto com a participação de quem está escrevendo.
+// As leituras de ocorrências, comentários e nomes públicos são abertas porque a consulta
+// não exige conta (RN-CSL-01). Dados privados ficam em users/{uid}.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() {
+      return request.auth != null;
+    }
+
+    function ehDono(uid) {
+      return logado() && request.auth.uid == uid;
+    }
+
+    // Campos que a escrita está alterando.
+    function alterados() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function um(condicao) {
+      return condicao ? 1 : 0;
+    }
+
+    // ── Participação de quem está escrevendo, antes e depois desta escrita ──────────────
+    function caminhoParticipacao(ocorrenciaId) {
+      return /databases/$(database)/documents/participacoes/$(ocorrenciaId + '_' + request.auth.uid);
+    }
+
+    function eraAfetado(ocorrenciaId) {
+      return exists(caminhoParticipacao(ocorrenciaId))
+        && get(caminhoParticipacao(ocorrenciaId)).data.afetado == true;
+    }
+
+    function eraApoiador(ocorrenciaId) {
+      return exists(caminhoParticipacao(ocorrenciaId))
+        && get(caminhoParticipacao(ocorrenciaId)).data.apoio == true;
+    }
+
+    function ficaAfetado(ocorrenciaId) {
+      return existsAfter(caminhoParticipacao(ocorrenciaId))
+        && getAfter(caminhoParticipacao(ocorrenciaId)).data.afetado == true;
+    }
+
+    function ficaApoiador(ocorrenciaId) {
+      return existsAfter(caminhoParticipacao(ocorrenciaId))
+        && getAfter(caminhoParticipacao(ocorrenciaId)).data.apoio == true;
+    }
+
+    // A denúncia desta conta para o conteúdo está sendo criada nesta mesma escrita.
+    function denunciaNova(tipo, conteudoId) {
+      let caminho = /databases/$(database)/documents/denuncias/$(tipo + '_' + conteudoId + '_' + request.auth.uid);
+      return !exists(caminho) && existsAfter(caminho);
+    }
+
+    // ── Nome público ────────────────────────────────────────────────────────────────────
+    match /perfis/{uid} {
+      allow read: if true;
+      allow create, update: if ehDono(uid)
+        && request.resource.data.keys().hasOnly(['nome', 'removido'])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() <= 80
+        && request.resource.data.removido is bool;
+      allow delete: if false;
+    }
+
+    // ── Dados privados do usuário (preferências, estado por ocorrência) ─────────────────
+    match /users/{uid} {
+      allow read, write: if ehDono(uid);
+
+      // Inclui `occurrenceState` (silenciar, última visita) e `devices` (tokens de push):
+      // ninguém além do dono lê o token de um aparelho. A API de push usa o Admin SDK,
+      // que não passa por estas regras.
+      match /{subcolecao}/{documento} {
+        allow read, write: if ehDono(uid);
+      }
+    }
+
+    // ── Controle interno da API de push: nenhum cliente lê nem escreve ──────────────────
+    // eventosProcessados: proteção contra notificação duplicada.
+    // pushControle: último push de comentário por pessoa e ocorrência (limite de 30 min).
+    match /eventosProcessados/{eventoId} {
+      allow read, write: if false;
+    }
+
+    match /pushControle/{controleId} {
+      allow read, write: if false;
+    }
+
+    // ── Ocorrências ─────────────────────────────────────────────────────────────────────
+    match /ocorrencias/{ocorrenciaId} {
+      allow read: if true;
+
+      // Criada pelo próprio autor, Aberta, já com o autor como único afetado (RN-REG-08).
+      allow create: if logado()
+        && request.resource.data.autorId == request.auth.uid
+        && request.resource.data.estado == 'ABERTA'
+        && request.resource.data.totalAfetados == 1
+        && request.resource.data.totalApoios == 0
+        && request.resource.data.totalDenuncias == 0
+        && request.resource.data.concluidaEm == null
+        && request.resource.data.conclusao == null
+        && request.resource.data.descricao is string
+        && request.resource.data.descricao.size() >= 10
+        && request.resource.data.descricao.size() <= 500
+        && request.resource.data.fotos is list
+        && request.resource.data.fotos.size() <= 3
+        && ficaAfetado(ocorrenciaId);
+
+      // O autor edita descrição e fotos enquanto não estiver concluída (RN-REG-09).
+      function edicaoDoAutor() {
+        return request.auth.uid == resource.data.autorId
+          && resource.data.estado != 'CONCLUIDA'
+          && alterados().hasOnly(['descricao', 'fotos'])
+          && request.resource.data.descricao is string
+          && request.resource.data.descricao.size() >= 10
+          && request.resource.data.descricao.size() <= 500
+          && request.resource.data.fotos is list
+          && request.resource.data.fotos.size() <= 3;
+      }
+
+      // Só o autor conclui (RN-ACO-04).
+      function conclusaoDoAutor() {
+        return request.auth.uid == resource.data.autorId
+          && resource.data.estado != 'CONCLUIDA'
+          && request.resource.data.estado == 'CONCLUIDA'
+          && alterados().hasOnly(['estado', 'concluidaEm', 'ultimaAtividadeEm', 'conclusao']);
+      }
+
+      // Contagens: cada uma só muda conforme a participação de quem escreve (no máximo 1 por vez).
+      // Em ocorrência concluída só é aceito diminuir (exclusão de conta), nunca participar (RN-PAR-05).
+      // Também cobre o registro de atividade (novo comentário), em que as contagens não mudam.
+      function participacaoOuAtividade() {
+        return alterados().hasOnly(['totalAfetados', 'totalApoios', 'estado', 'ultimaAtividadeEm'])
+          && request.resource.data.totalAfetados
+               == resource.data.totalAfetados + um(ficaAfetado(ocorrenciaId)) - um(eraAfetado(ocorrenciaId))
+          && request.resource.data.totalApoios
+               == resource.data.totalApoios + um(ficaApoiador(ocorrenciaId)) - um(eraApoiador(ocorrenciaId))
+          && (
+            resource.data.estado != 'CONCLUIDA'
+            || (
+              request.resource.data.totalAfetados <= resource.data.totalAfetados
+              && request.resource.data.totalApoios <= resource.data.totalApoios
+              && request.resource.data.ultimaAtividadeEm == resource.data.ultimaAtividadeEm
+            )
+          )
+          && (
+            request.resource.data.estado == resource.data.estado
+            // RN-ACO-02: Aberta → Em acompanhamento ao atingir 3 afetados.
+            || (
+              resource.data.estado == 'ABERTA'
+              && request.resource.data.estado == 'EM_ACOMPANHAMENTO'
+              && request.resource.data.totalAfetados >= 3
+            )
+          );
+      }
+
+      // Uma denúncia por conta soma exatamente 1 (RN-MOD-01, RN-MOD-02).
+      function denuncia() {
+        return alterados().hasOnly(['totalDenuncias'])
+          && request.resource.data.totalDenuncias == resource.data.totalDenuncias + 1
+          && denunciaNova('OCORRENCIA', ocorrenciaId);
+      }
+
+      // Quem é afetado reabre uma concluída; Segurança não reabre (RN-ACO-07).
+      function reabertura() {
+        return resource.data.estado == 'CONCLUIDA'
+          && resource.data.categoria != 'SEGURANCA'
+          && request.resource.data.estado == 'EM_ACOMPANHAMENTO'
+          && request.resource.data.concluidaEm == null
+          && request.resource.data.conclusao == null
+          && alterados().hasOnly(['estado', 'concluidaEm', 'conclusao', 'ultimaAtividadeEm'])
+          && eraAfetado(ocorrenciaId);
+      }
+
+      allow update: if logado() && (
+        edicaoDoAutor()
+        || conclusaoDoAutor()
+        || participacaoOuAtividade()
+        || denuncia()
+        || reabertura()
+      );
+
+      // Ocorrências não podem ser excluídas (RN-REG-10).
+      allow delete: if false;
+
+      // Linha do tempo: só acrescenta eventos; nunca altera nem apaga (RN-ACO-03).
+      match /linhaDoTempo/{eventoId} {
+        allow read: if true;
+        allow create: if logado()
+          && request.resource.data.keys().hasOnly(['tipo', 'descricao', 'em'])
+          && request.resource.data.tipo in
+               ['CRIADA', 'ESTADO_ALTERADO', 'MARCO_AFETADOS', 'DESVIO_DETECTADO', 'CONCLUIDA', 'REABERTA']
+          && request.resource.data.descricao is string
+          && request.resource.data.descricao.size() <= 200
+          && request.resource.data.em is string;
+        allow update, delete: if false;
+      }
+    }
+
+    // ── Participações: cada conta só escreve a própria (RN-PAR-02) ──────────────────────
+    match /participacoes/{participacaoId} {
+      allow read: if true;
+      allow create, update: if logado()
+        && request.resource.data.uid == request.auth.uid
+        && participacaoId == request.resource.data.ocorrenciaId + '_' + request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'ocorrenciaId', 'afetado', 'apoio', 'atualizadoEm'])
+        && request.resource.data.afetado is bool
+        && request.resource.data.apoio is bool;
+      allow delete: if false;
+    }
+
+    // ── Comentários (RN-COM-01 a 04) ────────────────────────────────────────────────────
+    match /comentarios/{comentarioId} {
+      allow read: if true;
+
+      allow create: if logado()
+        && request.resource.data.autorId == request.auth.uid
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() >= 1
+        && request.resource.data.texto.size() <= 500
+        && request.resource.data.fotos is list
+        && request.resource.data.fotos.size() <= 3
+        && request.resource.data.totalDenuncias == 0
+        // Só em ocorrência existente e não concluída.
+        && get(/databases/$(database)/documents/ocorrencias/$(request.resource.data.ocorrenciaId)).data.estado
+             != 'CONCLUIDA';
+
+      // Não há edição de comentário: a única mudança aceita é a contagem de denúncias.
+      allow update: if logado()
+        && alterados().hasOnly(['totalDenuncias'])
+        && request.resource.data.totalDenuncias == resource.data.totalDenuncias + 1
+        && denunciaNova('COMENTARIO', comentarioId);
+
+      // O autor exclui o próprio comentário.
+      allow delete: if logado() && resource.data.autorId == request.auth.uid;
+    }
+
+    // ── Denúncias: uma por conta por conteúdo; só quem denunciou lê a própria ───────────
+    match /denuncias/{denunciaId} {
+      allow get: if logado() && (resource == null || resource.data.uid == request.auth.uid);
+      allow list: if false;
+      allow create: if logado()
+        && request.resource.data.uid == request.auth.uid
+        && denunciaId == request.resource.data.tipoConteudo + '_' + request.resource.data.conteudoId
+             + '_' + request.auth.uid
+        && request.resource.data.tipoConteudo in ['OCORRENCIA', 'COMENTARIO', 'FOTO']
+        && request.resource.data.motivo in ['OFENSIVO', 'DADOS_PESSOAIS', 'SPAM', 'FALSO'];
+      allow update, delete: if false;
+    }
+  }
+}

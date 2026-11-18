@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppText } from '@/components/ui/AppText';
 import { CustomButton } from '@/components/ui/CustomButton';
+import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { useTema } from '@/context/ThemeContext';
@@ -19,9 +21,43 @@ export interface GaleriaFotosProps {
   aoDenunciar?: (foto: Foto) => void;
 }
 
+/**
+ * Miniatura com imagem padrão: se a foto não carregar (sem conexão, ou foto guardada só no
+ * aparelho de quem tirou), aparece um ícone no lugar em vez de um espaço vazio.
+ */
+function Miniatura({ url, tamanho }: { url: string; tamanho: number }) {
+  const { cores } = useTema();
+  const [falhou, setFalhou] = useState(false);
+
+  if (falhou) {
+    return (
+      <View
+        style={[
+          styles.miniatura,
+          styles.semFoto,
+          { width: tamanho, height: tamanho, backgroundColor: cores.superficieAlt },
+        ]}>
+        <Icon nome="image-outline" tamanho={28} cor="textoTerciario" />
+        <AppText variante="legenda" cor="textoTerciario" centralizado>
+          Foto indisponível
+        </AppText>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: url }}
+      style={[styles.miniatura, { width: tamanho, height: tamanho, backgroundColor: cores.superficieAlt }]}
+      contentFit="cover"
+      transition={200}
+      onError={() => setFalhou(true)}
+    />
+  );
+}
+
 /** Miniaturas roláveis; ao tocar, a foto abre em tela cheia. */
 export function GaleriaFotos({ fotos, contexto, tamanho = 132, aoDenunciar }: GaleriaFotosProps) {
-  const { cores } = useTema();
   const insets = useSafeAreaInsets();
   const [aberta, setAberta] = useState<Foto | null>(null);
 
@@ -38,12 +74,7 @@ export function GaleriaFotos({ fotos, contexto, tamanho = 132, aoDenunciar }: Ga
             accessibilityHint="Abre a foto em tela cheia"
             onPress={() => setAberta(foto)}
             escala={0.97}>
-            <Image
-              source={{ uri: foto.url }}
-              style={[styles.miniatura, { width: tamanho, height: tamanho, backgroundColor: cores.superficieAlt }]}
-              contentFit="cover"
-              transition={200}
-            />
+            <Miniatura url={foto.url} tamanho={tamanho} />
           </PressableScale>
         ))}
       </ScrollView>
@@ -98,6 +129,7 @@ export function GaleriaFotos({ fotos, contexto, tamanho = 132, aoDenunciar }: Ga
 const styles = StyleSheet.create({
   lista: { gap: espacos.sm },
   miniatura: { borderRadius: raios.md, borderCurve: 'continuous' },
+  semFoto: { alignItems: 'center', justifyContent: 'center', gap: espacos.xs, padding: espacos.sm },
   fundo: { flex: 1, backgroundColor: '#000000' },
   fechar: { position: 'absolute', right: espacos.lg },
   rodape: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },

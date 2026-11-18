@@ -1,0 +1,27 @@
+{
+  "name": "colecity-push-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API de push do Colecity (Vercel): valida o evento e envia pelo Expo Push Service.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.9.0",
+    "firebase-admin": "^13.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "@vercel/node": "^5.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "type": "module"
+}

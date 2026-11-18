@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/notificar",
+      "destination": "/api/notificar"
+    },
+    {
+      "source": "/health",
+      "destination": "/api/health"
+    },
+    {
+      "source": "/fotos",
+      "destination": "/api/fotos"
+    }
+  ]
+}

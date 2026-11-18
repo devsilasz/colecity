@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import { useMemo, type Ref } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Circle, Heatmap, Marker, PROVIDER_GOOGLE, type EdgePadding, type Region } from 'react-native-maps';
 
@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { NOME_CATEGORIA } from '@/config/categorias';
 import { env } from '@/config/env';
 import { useTema } from '@/context/ThemeContext';
+import { useRedesenhoMarcadores } from '@/hooks/useRedesenhoMarcadores';
 import { aparenciaCategoria, comAlfa, espacos, raios } from '@/theme';
 import type { OcorrenciaResumo, PontoCalor, ZonaAtencao } from '@/types/ocorrencia';
 import { CENTRO_SAO_PAULO } from '@/utils/distancia';
@@ -43,6 +44,51 @@ function tamanhoMarcador(ocorrencia: OcorrenciaResumo): number {
   return 32;
 }
 
+interface PontoMapa {
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * Posição de cada marcador. Como a localização exibida é aproximada (RN-GER-05), ocorrências da
+ * mesma rua caem no mesmo ponto e os marcadores ficariam um sobre o outro. As que coincidem são
+ * distribuídas em um pequeno círculo em volta do ponto, sempre na mesma ordem.
+ */
+function espalharCoincidentes(ocorrencias: readonly OcorrenciaResumo[]): Map<string, PontoMapa> {
+  const grupos = new Map<string, OcorrenciaResumo[]>();
+  for (const ocorrencia of ocorrencias) {
+    const { lat, lng } = ocorrencia.localizacaoAproximada;
+    // 4 casas decimais ≈ 11 m: mais perto que isso, os marcadores se cobrem.
+    const chave = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    grupos.set(chave, [...(grupos.get(chave) ?? []), ocorrencia]);
+  }
+
+  const posicoes = new Map<string, PontoMapa>();
+  for (const grupo of grupos.values()) {
+    const primeira = grupo[0];
+    if (!primeira) continue;
+    const centro = primeira.localizacaoAproximada;
+    if (grupo.length === 1) {
+      posicoes.set(primeira.id, { latitude: centro.lat, longitude: centro.lng });
+      continue;
+    }
+    // Raio em metros: cresce com o grupo para os marcadores não se tocarem.
+    const raio = Math.max(30, grupo.length * 8);
+    const grausLat = raio / 111_320;
+    const grausLng = raio / (111_320 * Math.cos((centro.lat * Math.PI) / 180));
+    [...grupo]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .forEach((ocorrencia, indice) => {
+        const angulo = (2 * Math.PI * indice) / grupo.length;
+        posicoes.set(ocorrencia.id, {
+          latitude: centro.lat + grausLat * Math.cos(angulo),
+          longitude: centro.lng + grausLng * Math.sin(angulo),
+        });
+      });
+  }
+  return posicoes;
+}
+
 /** Raio (m) do círculo de calor no modo sem heatmap nativo. */
 function raioCalor(peso: number): number {
   return 220 + Math.min(peso, 120) * 6;
@@ -66,7 +112,19 @@ export function MapaOcorrencias({
   recuos,
 }: MapaOcorrenciasProps) {
   const { cores, escuro, esquema } = useTema();
+  const posicoes = useMemo(() => espalharCoincidentes(ocorrencias), [ocorrencias]);
   const maiorPeso = pontosCalor.reduce((maior, ponto) => Math.max(maior, ponto.peso), 1);
+  // Tudo o que muda o desenho de algum marcador (ver useRedesenhoMarcadores).
+  const redesenhar = useRedesenhoMarcadores(
+    [
+      esquema,
+      camada,
+      selecionadaId ?? '',
+      ocorrencias.map((o) => `${o.id}:${o.totalAfetados + o.totalApoios}`).join(','),
+      pontosCalor.map((p) => `${p.lat},${p.lng},${p.peso}`).join(';'),
+      zonas.map((z) => `${z.categoria},${z.centro.lat},${z.centro.lng},${z.totalRelatos}`).join(';'),
+    ].join('|'),
+  );
 
   return (
     <MapView
@@ -102,7 +160,7 @@ export function MapaOcorrencias({
           anchor={{ x: 0.5, y: 1.4 }}
           title={`Zona de atenção: ${NOME_CATEGORIA[zona.categoria]}`}
           description={zona.texto}
-          tracksViewChanges={false}>
+          tracksViewChanges={redesenhar}>
           <View style={[styles.seloZona, { backgroundColor: cores.perigo }]}>
             <Icon nome="alert-circle" tamanho={14} corCustom={cores.textoInverso} />
             <AppText variante="legenda" corCustom={cores.textoInverso} maxFontSizeMultiplier={1.2}>
@@ -143,7 +201,7 @@ export function MapaOcorrencias({
               coordinate={{ latitude: ponto.lat, longitude: ponto.lng }}
               anchor={{ x: 0.5, y: 0.5 }}
               title={ponto.peso === 1 ? '1 pessoa afetada nesta área' : `${ponto.peso} pessoas afetadas nesta área`}
-              tracksViewChanges={false}>
+              tracksViewChanges={redesenhar}>
               <View style={[styles.numeroCalor, { backgroundColor: cores.superficie, borderColor: cores.afetados }]}>
                 <AppText variante="legenda" corCustom={cores.texto} maxFontSizeMultiplier={1.2}>
                   {ponto.peso}
@@ -161,13 +219,15 @@ export function MapaOcorrencias({
             <Marker
               // A `key` muda com a seleção e o tema para o marcador ser redesenhado.
               key={`${ocorrencia.id}-${String(selecionada)}-${esquema}`}
-              coordinate={{
-                latitude: ocorrencia.localizacaoAproximada.lat,
-                longitude: ocorrencia.localizacaoAproximada.lng,
-              }}
+              coordinate={
+                posicoes.get(ocorrencia.id) ?? {
+                  latitude: ocorrencia.localizacaoAproximada.lat,
+                  longitude: ocorrencia.localizacaoAproximada.lng,
+                }
+              }
               anchor={{ x: 0.5, y: 0.5 }}
               zIndex={selecionada ? 999 : ocorrencia.totalAfetados + ocorrencia.totalApoios}
-              tracksViewChanges={false}
+              tracksViewChanges={redesenhar}
               accessibilityLabel={`${ocorrencia.titulo}. ${ocorrencia.totalAfetados} afetados, ${ocorrencia.totalApoios} apoios.`}
               onPress={(evento) => {
                 evento.stopPropagation();

@@ -7,6 +7,7 @@ import { REGIAO_SAO_PAULO } from '@/components/mapa/MapaOcorrencias';
 import { Icon } from '@/components/ui/Icon';
 import { env } from '@/config/env';
 import { useTema } from '@/context/ThemeContext';
+import { useRedesenhoMarcadores } from '@/hooks/useRedesenhoMarcadores';
 import { raios } from '@/theme';
 import type { Coordenada } from '@/types/api';
 import type { Veiculo } from '@/types/transporte';
@@ -34,6 +35,9 @@ export function nomeFonte(veiculo: Veiculo): string {
 export function MapaLinha({ trajeto, veiculos, trechoDesvio, descricao }: MapaLinhaProps) {
   const { cores, escuro, esquema } = useTema();
   const mapa = useRef<MapView>(null);
+  const redesenhar = useRedesenhoMarcadores(
+    `${esquema}|${veiculos.map((v) => `${v.fonte},${v.posicao.lat.toFixed(5)},${v.posicao.lng.toFixed(5)}`).join(';')}`,
+  );
 
   // Enquadra o trajeto inteiro quando ele chega ou muda de sentido.
   useEffect(() => {
@@ -88,7 +92,7 @@ export function MapaLinha({ trajeto, veiculos, trechoDesvio, descricao }: MapaLi
               key={`${veiculo.fonte}-${veiculo.prefixo ?? indice}-${veiculo.posicao.lat.toFixed(5)}-${veiculo.posicao.lng.toFixed(5)}-${esquema}`}
               coordinate={paraMapa(veiculo.posicao)}
               anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
+              tracksViewChanges={redesenhar}
               title={sptrans ? `Ônibus ${veiculo.prefixo ?? ''} · SPTrans` : 'Relatado por passageiros'}
               description={`Atualizado ${tempoRelativo(veiculo.atualizadoEm)}`}>
               <View style={[styles.onibus, { backgroundColor: cor, borderColor: cores.superficie }]}>

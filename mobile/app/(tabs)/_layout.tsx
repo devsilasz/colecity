@@ -1,8 +1,9 @@
 import { BlurTargetView } from 'expo-blur';
-import { TabList, Tabs, TabSlot, TabTrigger } from 'expo-router/ui';
+import { TabList, Tabs, TabTrigger } from 'expo-router/ui';
 import { useRef } from 'react';
 import { StyleSheet } from 'react-native';
 
+import { CarrosselAbas } from '@/components/navigation/CarrosselAbas';
 import { GlassTabBar } from '@/components/navigation/GlassTabBar';
 import { BlurTargetContext, type AlvoBlur } from '@/components/ui/GlassSurface';
 
@@ -13,7 +14,7 @@ export default function TabsLayout() {
     <Tabs>
       {/* As telas são o alvo do blur da tab bar (necessário no Android). */}
       <BlurTargetView ref={alvo} style={styles.telas}>
-        <TabSlot />
+        <CarrosselAbas />
       </BlurTargetView>
 
       <BlurTargetContext.Provider value={alvo}>

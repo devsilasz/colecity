@@ -17,10 +17,19 @@ import { useTema } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotificacoesAtivas } from '@/hooks/useNotificacoesAtivas';
+import { useEstadoPush } from '@/hooks/useNotificacoesPush';
 import { mensagemDeErro } from '@/services/erros';
+import type { EstadoPush } from '@/services/notificacoes';
 import { espacos } from '@/theme';
 
-function descricaoNotificacoes(): string {
+function descricaoNotificacoes(estado: EstadoPush): string {
+  // Permissão negada ou aparelho sem token: explica em vez de falhar em silêncio.
+  if (estado === 'NEGADA') {
+    return 'A permissão de notificações está negada. Ative nas configurações do Android para receber avisos.';
+  }
+  if (estado === 'SEM_TOKEN') {
+    return 'Este aparelho não conseguiu se registrar para notificações. Verifique a internet e o Google Play Services.';
+  }
   if (env.recursos.push) return 'Avisos sobre as ocorrências que você registrou, afetam você ou apoia.';
   // RN-NOT: push só no Android e fora do Expo Go; a preferência fica salva mesmo assim.
   return 'O envio funciona no aplicativo Android instalado por APK. Sua preferência fica salva.';
@@ -32,6 +41,7 @@ export default function PerfilScreen() {
   const { mostrarToast } = useToast();
   const { usuario, carregando, temSenha, sair } = useAuth();
   const notificacoes = useNotificacoesAtivas(usuario?.uid ?? null);
+  const estadoPush = useEstadoPush();
 
   const [confirmandoSaida, setConfirmandoSaida] = useState(false);
   const [saindo, setSaindo] = useState(false);
@@ -87,7 +97,7 @@ export default function PerfilScreen() {
             <ToggleRow
               icone="notifications-outline"
               titulo="Notificações"
-              descricao={descricaoNotificacoes()}
+              descricao={descricaoNotificacoes(estadoPush)}
               valor={notificacoes.ativas}
               aoMudar={notificacoes.definir}
               disabled={notificacoes.carregando}

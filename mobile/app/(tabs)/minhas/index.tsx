@@ -23,7 +23,7 @@ import { idsComNovidade, useMinhasOcorrencias } from '@/hooks/useMinhasOcorrenci
 import { filaOffline, type ItemFila } from '@/services/offlineQueue';
 import { chaves, queryClient } from '@/services/queryClient';
 import { espacos } from '@/theme';
-import type { AbaMinhas } from '@/types/ocorrencia';
+import type { AbaMinhas, OcorrenciaResumo } from '@/types/ocorrencia';
 import { tempoRelativo } from '@/utils/formatarData';
 
 const VAZIO: Record<AbaMinhas, Omit<EmptyStateProps, 'aoAgir'>> = {
@@ -49,6 +49,11 @@ const VAZIO: Record<AbaMinhas, Omit<EmptyStateProps, 'aoAgir'>> = {
     iconeAcao: 'compass-outline',
   },
 };
+
+/** Identifica cada novidade (ocorrência + atividade), para saber quais o usuário já viu na aba. */
+function marcasDeNovidade(ocorrencias: readonly OcorrenciaResumo[], ids: ReadonlySet<string>): string[] {
+  return ocorrencias.filter((o) => ids.has(o.id)).map((o) => `${o.id}@${o.ultimaAtividadeEm}`);
+}
 
 /** Registros feitos sem conexão, ainda na fila (RN-GER-10). */
 function RegistrosPendentes({ itens, uid }: { itens: readonly ItemFila[]; uid: string }) {
@@ -145,10 +150,26 @@ function Minhas({ uid }: { uid: string }) {
     [registradas.ocorrencias, afetado.ocorrencias, apoio.ocorrencias, estados.data],
   );
 
+  // O ponto da aba some quando ela é aberta: a aba aberta nunca mostra o ponto e, ao sair dela,
+  // as novidades que estavam na lista ficam como vistas. O selo de cada ocorrência continua até
+  // ela ser aberta (RN-MIN-04).
+  const [vistasNaAba, setVistasNaAba] = useState<ReadonlySet<string>>(() => new Set());
+  const marcas: Record<AbaMinhas, string[]> = {
+    REGISTRADAS: marcasDeNovidade(registradas.ocorrencias, novidades.REGISTRADAS),
+    AFETADO: marcasDeNovidade(afetado.ocorrencias, novidades.AFETADO),
+    APOIO: marcasDeNovidade(apoio.ocorrencias, novidades.APOIO),
+  };
+  const temPonto = (alvo: AbaMinhas) => alvo !== aba && marcas[alvo].some((marca) => !vistasNaAba.has(marca));
+
+  const mudarAba = (nova: AbaMinhas) => {
+    setVistasNaAba((atual) => new Set([...atual, ...marcas[aba]]));
+    setAba(nova);
+  };
+
   const opcoes: OpcaoSegmento<AbaMinhas>[] = [
-    { valor: 'REGISTRADAS', rotulo: 'Registradas por mim', novidade: novidades.REGISTRADAS.size > 0 },
-    { valor: 'AFETADO', rotulo: 'Sou afetado', novidade: novidades.AFETADO.size > 0 },
-    { valor: 'APOIO', rotulo: 'Apoio', novidade: novidades.APOIO.size > 0 },
+    { valor: 'REGISTRADAS', rotulo: 'Registradas por mim', novidade: temPonto('REGISTRADAS') },
+    { valor: 'AFETADO', rotulo: 'Sou afetado', novidade: temPonto('AFETADO') },
+    { valor: 'APOIO', rotulo: 'Apoio', novidade: temPonto('APOIO') },
   ];
 
   const lista = aba === 'REGISTRADAS' ? registradas : aba === 'AFETADO' ? afetado : apoio;
@@ -186,7 +207,7 @@ function Minhas({ uid }: { uid: string }) {
         cabecalho={
           <View style={styles.cabecalho}>
             <LargeTitle titulo="Minhas" subtitulo="O que você registrou e acompanha" scrollY={scrollY} />
-            <SegmentedControl rotulo="Abas de Minhas ocorrências" opcoes={opcoes} valor={aba} aoMudar={setAba} />
+            <SegmentedControl rotulo="Abas de Minhas ocorrências" opcoes={opcoes} valor={aba} aoMudar={mudarAba} />
             {aba === 'REGISTRADAS' ? <RegistrosPendentes itens={fila.itens} uid={uid} /> : null}
           </View>
         }

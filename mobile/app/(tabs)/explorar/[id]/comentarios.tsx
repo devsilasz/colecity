@@ -24,6 +24,7 @@ import { useEspacosTela } from '@/hooks/useCabecalhoRolavel';
 import { useComentarios } from '@/hooks/useComentarios';
 import { pendentesDaOcorrencia, useFilaOffline } from '@/hooks/useFilaOffline';
 import { useOcorrencia } from '@/hooks/useOcorrencia';
+import { useComentariosAoVivo } from '@/hooks/useTempoReal';
 import type { FotoLocal } from '@/services/contratos';
 import { mensagemDeErro } from '@/services/erros';
 import { ESCALA_FONTE_MAXIMA, espacos, raios, tipografia } from '@/theme';
@@ -114,6 +115,7 @@ export default function ComentariosScreen() {
   const ocorrencia = useOcorrencia(id);
   const lista = useComentarios(id);
   const fila = useFilaOffline(usuario?.uid ?? null);
+  useComentariosAoVivo(id);
 
   const [excluindo, setExcluindo] = useState<Comentario | null>(null);
   const [denuncia, setDenuncia] = useState<AlvoDenuncia | null>(null);

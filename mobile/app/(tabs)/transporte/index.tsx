@@ -13,9 +13,24 @@ import { CustomInput } from '@/components/ui/CustomInput';
 import { ListRow } from '@/components/ui/ListRow';
 import { ScreenScroll } from '@/components/ui/ScreenScroll';
 import { SectionTitle } from '@/components/ui/SectionTitle';
+import { env } from '@/config/env';
 import { useBuscaLinhas } from '@/hooks/useViagem';
+import { LINHAS_SEMENTE } from '@/mocks/transporte';
 import { mensagemDeErro } from '@/services/erros';
 import { espacos } from '@/theme';
+
+/**
+ * Linhas cobertas nesta versão. A API de domínio usa uma amostra do GTFS da SPTrans com estas 4 linhas
+ * (`backend/src/Colecity.Infrastructure/Transporte/Gtfs/routes.txt`); o mock tem as suas próprias.
+ */
+const LINHAS_COBERTAS: { codigo: string; nome: string }[] = env.usarMock
+  ? LINHAS_SEMENTE.map(({ codigo, nome }) => ({ codigo, nome }))
+  : [
+      { codigo: '8700-10', nome: 'Pq. Continental – Pça. Ramos' },
+      { codigo: '875A-10', nome: 'Perdizes – Metrô Butantã' },
+      { codigo: '5119-10', nome: 'Term. Capelinha – Metrô Santa Cruz' },
+      { codigo: '3301-10', nome: 'Cid. Tiradentes – Metrô Itaquera' },
+    ];
 
 /** Transporte ao vivo: busca da linha por número ou nome, aberta a visitantes (RN-TAV-01). */
 export default function TransporteScreen() {
@@ -74,7 +89,7 @@ export default function TransporteScreen() {
                 <EmptyState
                   icone="bus-outline"
                   titulo="Nenhuma linha encontrada"
-                  descricao="Confira o número ou tente parte do nome da linha."
+                  descricao={`Confira o número ou tente parte do nome. Nesta versão, cobrimos as linhas ${LINHAS_COBERTAS.map((l) => l.codigo).join(', ')}.`}
                 />
               </Card>
             ) : (
@@ -105,6 +120,27 @@ export default function TransporteScreen() {
           </AppText>
         </Card>
       )}
+
+      {!buscando ? (
+        <>
+          <SectionTitle>Linhas disponíveis</SectionTitle>
+          <AppText variante="subtitulo" cor="textoSecundario">
+            Nesta versão, o Colecity cobre só estas linhas. Toque em uma para abrir.
+          </AppText>
+          <Card semPadding>
+            {LINHAS_COBERTAS.map((linha, indice) => (
+              <ListRow
+                key={linha.codigo}
+                icone="bus-outline"
+                titulo={linha.codigo}
+                descricao={linha.nome}
+                divisor={indice < LINHAS_COBERTAS.length - 1}
+                onPress={() => abrir(linha.codigo)}
+              />
+            ))}
+          </Card>
+        </>
+      ) : null}
     </ScreenScroll>
   );
 }

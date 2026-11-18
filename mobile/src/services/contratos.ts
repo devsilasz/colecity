@@ -148,6 +148,8 @@ export interface TempoRealService {
 
 /** Dados do próprio usuário (Firestore na versão real) — doc 08, seção 8. */
 export interface UserDataService {
+  /** Guarda a versão dos termos aceita no cadastro (RN-CON-01, RN-CON-11). */
+  registrarAceite(uid: string, aceiteTermosVersao: string): Promise<void>;
   obterNotificacoesAtivas(uid: string): Promise<boolean>;
   definirNotificacoesAtivas(uid: string, ativas: boolean): Promise<void>;
   obterEstados(uid: string): Promise<Record<string, EstadoOcorrenciaUsuario>>;

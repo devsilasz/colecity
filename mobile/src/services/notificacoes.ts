@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import * as Device from 'expo-device';
@@ -12,9 +11,10 @@ import { auth, db } from './firebase';
 /**
  * Push notifications (somente Android, somente no APK / development build).
  *
- * - O app só registra o aparelho (Expo push token em `users/{uid}/devices/{deviceId}`) e avisa a
- *   API de push que um evento aconteceu. Quem recebe é decidido no servidor (`push-api/`).
- * - No Expo Go, no iOS e fora da fonte `firestore` tudo aqui vira "não faz nada", sem erro.
+ * - O app só registra o aparelho (Expo push token em `users/{uid}/devices/{deviceId}`). O push nasce
+ *   no domínio: cada evento (comentário, conclusão, reabertura, desvio) vai ao BFF
+ *   (`POST /eventos-dominio`), que lê os aparelhos e as preferências e envia.
+ * - No Expo Go, no iOS e no mock tudo aqui vira "não faz nada", sem erro.
  *   Por isso o `expo-notifications` é carregado sob demanda: no Expo Go ele nem é importado.
  */
 
@@ -29,15 +29,13 @@ export type EstadoPush =
   /** Permissão dada, mas o aparelho não conseguiu um token (emulador, sem Google Play, sem rede). */
   | 'SEM_TOKEN';
 
-export type EventoPush = 'comentario' | 'concluida' | 'reaberta';
-
 type ModuloNotificacoes = typeof import('expo-notifications');
 
-/** Canal do Android; o mesmo nome é usado pela API de push. */
+/** Canal do Android; o mesmo nome é usado pelo BFF. */
 export const CANAL_OCORRENCIAS = 'ocorrencias';
 const CHAVE_APARELHO = '@colecity/push/deviceId';
 
-const disponivel = env.recursos.push && env.fonteDados === 'firestore';
+const disponivel = env.recursos.push && env.fonteDados === 'bff';
 
 /**
  * Último aparelho gravado nesta sessão (conta + token). Evita regravar o mesmo token e, junto com
@@ -78,11 +76,6 @@ function idDoProjetoEas(): string | null {
       ? extra.projectId
       : null;
   return doExtra ?? Constants.easConfig?.projectId ?? null;
-}
-
-/** Evento que o app relata à API de push depois de gravar no Firestore. */
-export function idEventoEstado(ocorrenciaId: string, evento: 'concluida' | 'reaberta', em: string): string {
-  return `${ocorrenciaId}_${evento}_${em}`;
 }
 
 export const notificacoes = {
@@ -174,25 +167,6 @@ export const notificacoes = {
     } finally {
       ultimoGravado = null;
       definirEstado('NAO_PEDIDA');
-    }
-  },
-
-  /**
-   * Avisa a API de push que um evento aconteceu (já gravado no Firestore). O app não escolhe
-   * destinatários nem texto. Falha aqui nunca desfaz a ação nem aparece para a pessoa.
-   */
-  async avisarEvento(ocorrenciaId: string, evento: EventoPush, eventoId: string): Promise<void> {
-    if (env.fonteDados !== 'firestore' || !env.pushApiUrl) return;
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) return;
-      await axios.post(
-        `${env.pushApiUrl.replace(/\/+$/, '')}/notificar`,
-        { ocorrenciaId, evento, eventoId },
-        { headers: { Authorization: `Bearer ${token}` }, timeout: 10_000 },
-      );
-    } catch {
-      // Silencioso de propósito.
     }
   },
 

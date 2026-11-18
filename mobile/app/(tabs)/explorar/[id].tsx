@@ -95,7 +95,8 @@ function Detalhe({ ocorrencia }: { ocorrencia: OcorrenciaDetalhe }) {
   const [denuncia, setDenuncia] = useState<AlvoDenuncia | null>(null);
 
   const pendentes = pendentesDaOcorrencia(fila.itens, ocorrencia.id);
-  const local = `${ocorrencia.rua}, ${ocorrencia.bairro}`;
+  // Rua e bairro podem faltar quando a geocodificação falhou (doc 10): mostra só o que houver.
+  const local = [ocorrencia.rua, ocorrencia.bairro].filter(Boolean).join(', ') || 'Localização aproximada';
 
   return (
     <>

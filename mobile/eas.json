@@ -12,9 +12,9 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DATA_SOURCE": "firestore",
+        "EXPO_PUBLIC_DATA_SOURCE": "bff",
         "GOOGLE_SERVICES_JSON": "./google-services.json",
-        "EXPO_PUBLIC_PUSH_API_URL": "https://push-api-rho.vercel.app"
+        "EXPO_PUBLIC_BFF_URL": "https://push-api-rho.vercel.app"
       }
     },
     "preview": {
@@ -24,9 +24,9 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_DATA_SOURCE": "firestore",
+        "EXPO_PUBLIC_DATA_SOURCE": "bff",
         "GOOGLE_SERVICES_JSON": "./google-services.json",
-        "EXPO_PUBLIC_PUSH_API_URL": "https://push-api-rho.vercel.app"
+        "EXPO_PUBLIC_BFF_URL": "https://push-api-rho.vercel.app"
       }
     }
   }

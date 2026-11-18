@@ -7,8 +7,8 @@ import { CHAVES } from './storage';
 
 /**
  * Dados do próprio usuário: preferência de notificações, ocorrências silenciadas e última visita
- * (RN-MIN-04, RN-NOT-04). Nesta etapa ficam no AsyncStorage, por usuário; quando o Firebase for
- * ligado, este adaptador é trocado pelo do Firestore (`users/{uid}`, doc 08 §8) sem mudar as telas.
+ * (RN-MIN-04, RN-NOT-04), no AsyncStorage, por usuário. Usado só no mock; com o BFF, o adaptador é
+ * o do Firestore (`firestore/userData.firestore.ts`, `users/{uid}`, doc 08 §8).
  */
 
 interface DadosUsuarioLocal {
@@ -49,6 +49,9 @@ async function atualizarEstado(
 }
 
 export const userDataLocal: UserDataService = {
+  // No mock, o aceite já fica no usuário de demonstração (`mocks/banco.ts`).
+  registrarAceite: () => Promise.resolve(),
+
   async obterNotificacoesAtivas(uid) {
     return (await ler(uid)).notificationsEnabled;
   },

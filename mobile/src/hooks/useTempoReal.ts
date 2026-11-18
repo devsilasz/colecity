@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 
 import { tempoRealService } from '@/services';
-import { invalidarCacheFirestore } from '@/services/firestore/base';
 import { chaves, queryClient } from '@/services/queryClient';
 
 /**
@@ -17,7 +16,6 @@ export function useOcorrenciaAoVivo(ocorrenciaId: string): void {
       void queryClient.invalidateQueries({ queryKey: chaves.linhaDoTempo(ocorrenciaId) });
       void queryClient.invalidateQueries({ queryKey: chaves.apoiadores(ocorrenciaId) });
       // Estado e contagens aparecem também nas listas, no mapa e em Minhas.
-      invalidarCacheFirestore();
       void queryClient.invalidateQueries({ queryKey: chaves.ocorrencias });
       void queryClient.invalidateQueries({ queryKey: chaves.todasMinhas });
       void queryClient.invalidateQueries({ queryKey: chaves.mapa });

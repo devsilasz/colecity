@@ -12,21 +12,11 @@ import type {
   UsuarioService,
 } from './contratos';
 import { authFirebase } from './firestore/auth.firebase';
-import { comentarioFirestore } from './firestore/comentario.firestore';
-import { ocorrenciaFirestore } from './firestore/ocorrencia.firestore';
-import { participacaoFirestore } from './firestore/participacao.firestore';
-import { tempoRealFirestore } from './firestore/tempoReal.firestore';
-import { transporteFirestore } from './firestore/transporte.firestore';
-import { uploadLocal, uploadNuvem } from './firestore/upload.local';
-import { userDataFirestore, usuarioFirestore } from './firestore/usuario.firestore';
+import { userDataFirestore } from './firestore/userData.firestore';
 import { ocorrenciaHttp } from './http/ocorrencia.http';
-import {
-  comentarioHttp,
-  participacaoHttp,
-  transporteHttp,
-  uploadHttp,
-  usuarioHttp,
-} from './http/recursos.http';
+import { comentarioHttp, participacaoHttp, transporteHttp, usuarioHttp } from './http/recursos.http';
+import { tempoRealHttp } from './http/tempoReal.http';
+import { uploadHttp } from './http/upload.http';
 import { authMock } from './mock/auth.mock';
 import { comentarioMock } from './mock/comentario.mock';
 import { ocorrenciaMock } from './mock/ocorrencia.mock';
@@ -38,9 +28,9 @@ import { userDataLocal } from './userDataService';
 
 /**
  * ÚNICO ponto que escolhe o adaptador de dados, por `EXPO_PUBLIC_DATA_SOURCE`:
- * - `firestore` (padrão): Firebase Authentication + Cloud Firestore;
- * - `mock`: dados de demonstração guardados no aparelho;
- * - `bff`: API própria via Axios (doc 08 §11), com login pelo Firebase Authentication.
+ * - `bff` (padrão): login pelo Firebase Authentication; dados do domínio pelo BFF (Axios, doc 08 §11),
+ *   que repassa à API C#; Firestore só com os dados do próprio usuário (`users/{uid}`).
+ * - `mock`: tudo simulado no aparelho, para desenvolvimento sem rede.
  * Telas e hooks importam os services daqui e não sabem qual adaptador está ativo.
  */
 function escolher<T>(opcoes: Record<FonteDados, T>): T {
@@ -52,62 +42,24 @@ const semTempoReal: TempoRealService = {
   assinarComentarios: () => () => undefined,
 };
 
-export const authService: AuthService = escolher({
-  firestore: authFirebase,
-  mock: authMock,
-  bff: authFirebase,
-});
+export const authService: AuthService = escolher({ bff: authFirebase, mock: authMock });
 
-export const usuarioService: UsuarioService = escolher({
-  firestore: usuarioFirestore,
-  mock: usuarioMock,
-  bff: usuarioHttp,
-});
+export const usuarioService: UsuarioService = escolher({ bff: usuarioHttp, mock: usuarioMock });
 
-export const ocorrenciaService: OcorrenciaService = escolher({
-  firestore: ocorrenciaFirestore,
-  mock: ocorrenciaMock,
-  bff: ocorrenciaHttp,
-});
+export const ocorrenciaService: OcorrenciaService = escolher({ bff: ocorrenciaHttp, mock: ocorrenciaMock });
 
-export const participacaoService: ParticipacaoService = escolher({
-  firestore: participacaoFirestore,
-  mock: participacaoMock,
-  bff: participacaoHttp,
-});
+export const participacaoService: ParticipacaoService = escolher({ bff: participacaoHttp, mock: participacaoMock });
 
-export const comentarioService: ComentarioService = escolher({
-  firestore: comentarioFirestore,
-  mock: comentarioMock,
-  bff: comentarioHttp,
-});
+export const comentarioService: ComentarioService = escolher({ bff: comentarioHttp, mock: comentarioMock });
 
-/** Transporte ao vivo: simulado no app enquanto o BFF com a SPTrans não existe. */
-export const transporteService: TransporteService = escolher({
-  firestore: transporteFirestore,
-  mock: transporteMock,
-  bff: transporteHttp,
-});
+/** Transporte ao vivo: SPTrans e GTFS pela API de domínio; no mock, simulado no app. */
+export const transporteService: TransporteService = escolher({ bff: transporteHttp, mock: transporteMock });
 
-/**
- * Fotos: na nuvem (Vercel Blob, pela API do Colecity) quando `EXPO_PUBLIC_PUSH_API_URL` está
- * configurada; senão, só no aparelho. Ver `firestore/upload.local.ts`.
- */
-export const uploadService: UploadService = escolher({
-  firestore: env.pushApiUrl ? uploadNuvem : uploadLocal,
-  mock: uploadMock,
-  bff: uploadHttp,
-});
+/** Fotos: Vercel Blob pelo BFF (`POST /fotos`); o domínio guarda só o `path`. */
+export const uploadService: UploadService = escolher({ bff: uploadHttp, mock: uploadMock });
 
-/** Dados do próprio usuário: preferências, ocorrências silenciadas e última visita. */
-export const userDataService: UserDataService = escolher({
-  firestore: userDataFirestore,
-  mock: userDataLocal,
-  bff: userDataFirestore,
-});
+/** Dados do próprio usuário: aceite dos termos, preferências, silenciadas e última visita. */
+export const userDataService: UserDataService = escolher({ bff: userDataFirestore, mock: userDataLocal });
 
-export const tempoRealService: TempoRealService = escolher({
-  firestore: tempoRealFirestore,
-  mock: semTempoReal,
-  bff: semTempoReal,
-});
+/** "Ao vivo": polling enquanto a tela está aberta (o domínio não tem canal de tempo real). */
+export const tempoRealService: TempoRealService = escolher({ bff: tempoRealHttp, mock: semTempoReal });

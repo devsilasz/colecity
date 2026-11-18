@@ -3,11 +3,8 @@ import type {
   ComentarioService,
   ParticipacaoService,
   TransporteService,
-  UploadService,
   UsuarioService,
 } from '@/services/contratos';
-import { ErroApi } from '@/services/erros';
-import { comprimirParaWebp } from '@/services/imagem';
 import type { Pagina } from '@/types/api';
 import type { Comentario, NovoComentario } from '@/types/comentario';
 import type { OcorrenciaResumo, RespostaParticipacao } from '@/types/ocorrencia';
@@ -24,7 +21,7 @@ import type { EdicaoPerfil, Usuario } from '@/types/usuario';
 
 import { rotas } from './rotas';
 
-/** Adaptadores HTTP (BFF) dos demais recursos: modelos do doc 10, caminhos do doc 08 §11. */
+/** Adaptadores HTTP (BFF) dos demais recursos: modelos do doc 10, caminhos do doc 08 §11. Fotos: `upload.http.ts`. */
 
 export const usuarioHttp: UsuarioService = {
   registrarAcesso: (dados) => put<Usuario, typeof dados>(rotas.usuarioEu, dados),
@@ -64,15 +61,4 @@ export const transporteHttp: TransporteService = {
   responderDesvio: (viagemId, confirmado) =>
     post<RespostaDesvio, { confirmado: boolean }>(rotas.desvio(viagemId), { confirmado }),
   encerrarViagem: (viagemId) => post<void>(rotas.encerrarViagem(viagemId)),
-};
-
-/**
- * Upload real: o BFF fornece o caminho no Storage e o app envia o arquivo direto ao
- * Firebase Storage (doc 08 §6.1). O envio depende do SDK do Firebase, ligado em etapa posterior.
- */
-export const uploadHttp: UploadService = {
-  comprimir: comprimirParaWebp,
-  enviar() {
-    return Promise.reject(new ErroApi('RECURSO_INDISPONIVEL', 501));
-  },
 };

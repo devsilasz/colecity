@@ -42,7 +42,7 @@ export interface OcorrenciaResumo {
   categoria: Categoria;
   tipo: TipoOcorrencia;
   estado: EstadoOcorrencia;
-  bairro: string;
+  bairro: string | null;
   /** Arredondada para ~100 m (RN-CSL-08). */
   localizacaoAproximada: Coordenada;
   totalAfetados: number;
@@ -62,7 +62,7 @@ export interface Conclusao {
 /** Doc 10, seção 3.3. */
 export interface OcorrenciaDetalhe extends OcorrenciaResumo {
   descricao: string;
-  rua: string;
+  rua: string | null;
   linha: LinhaRef | null;
   dataHoraOcorrido: string | null;
   fotos: Foto[];

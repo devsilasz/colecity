@@ -56,8 +56,7 @@
     "build:apk": "npx eas-cli@latest build --profile preview --platform android",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "doctor": "npx expo-doctor",
-    "seed": "npx tsx scripts/seed-firestore.ts"
+    "doctor": "npx expo-doctor"
   },
   "private": true
 }

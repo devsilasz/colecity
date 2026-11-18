@@ -3,9 +3,10 @@ import type { TipoParticipacao } from '@/types/ocorrencia';
 /**
  * Rotas do BFF, em um só lugar.
  *
- * Seguem o contrato app ↔ BFF do doc 08, seção 11: os caminhos espelham o doc 10, prefixados
- * pelo nome da Cloud Function (`usuarios`, `ocorrencias`, `participacoes`, `comentarios`,
- * `transporte`, `uploads`, `health`), sob `EXPO_PUBLIC_BFF_URL`.
+ * Seguem o contrato app ↔ BFF do doc 08, seção 11: os caminhos espelham o doc 10, agrupados por
+ * recurso (`usuarios`, `ocorrencias`, `participacoes`, `comentarios`, `transporte`), sob
+ * `EXPO_PUBLIC_BFF_URL`. O BFF converte cada um no caminho do domínio (`bff/src/rotas.ts`).
+ * As fotos vão para `POST /fotos` (`upload.http.ts`).
  */
 const id = encodeURIComponent;
 
@@ -42,5 +43,4 @@ export const rotas = {
   desvio: (viagemId: string) => `/transporte/viagens/${id(viagemId)}/desvio`,
   encerrarViagem: (viagemId: string) => `/transporte/viagens/${id(viagemId)}/encerrar`,
 
-  uploads: '/uploads',
 } as const;

@@ -13,9 +13,8 @@ import { AVISO_NAO_OFICIAL } from '@/config/termos';
 import { espacos } from '@/theme';
 
 const FONTE: Record<FonteDados, string> = {
-  firestore: 'Dados no Firebase (Cloud Firestore)',
-  mock: 'Dados de demonstração no aparelho (mock)',
   bff: 'Conectado à API do Colecity',
+  mock: 'Dados de demonstração no aparelho (mock)',
 };
 
 /** Sobre: aviso de não ser canal oficial (RN-GER-08), termos e versão. */

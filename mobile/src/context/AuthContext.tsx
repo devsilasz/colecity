@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { authService, userDataService, usuarioService } from '@/services';
 import { configurarAutenticacaoApi } from '@/services/api';
-import { invalidarCacheFirestore } from '@/services/firestore/base';
 import { filaOffline } from '@/services/offlineQueue';
 import { notificacoes } from '@/services/notificacoes';
 import { chaves, queryClient } from '@/services/queryClient';
@@ -40,7 +39,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 /** Os dados em cache trazem campos do usuário (ex.: `podeEditar`): ao trocar a sessão, tudo é refeito. */
 function renovarCache(): void {
-  invalidarCacheFirestore();
   queryClient.removeQueries({ queryKey: chaves.todasMinhas });
   queryClient.removeQueries({ queryKey: chaves.perfil });
   void queryClient.invalidateQueries();
@@ -109,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: novo.email,
         aceiteTermosVersao: dados.aceiteTermosVersao,
       });
+      // O aceite também fica em `users/{uid}`: usado no login com Google e no recadastro pelo BFF.
+      await userDataService.registrarAceite(novo.uid, dados.aceiteTermosVersao).catch(() => undefined);
       iniciarSessao(novo);
     },
     [iniciarSessao],
@@ -122,8 +122,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { usuario: logado } = resultado;
       const acesso = usuarioService.registrarAcesso({ nome: logado.nome, email: logado.email, aceiteTermosVersao });
       // Conta nova (com aceite) precisa chegar ao domínio; em conta existente a falha não impede o login.
-      if (aceiteTermosVersao) await acesso;
-      else await acesso.catch(() => undefined);
+      if (aceiteTermosVersao) {
+        await acesso;
+        await userDataService.registrarAceite(logado.uid, aceiteTermosVersao).catch(() => undefined);
+      } else {
+        await acesso.catch(() => undefined);
+      }
       iniciarSessao(logado);
       return { tipo: 'SESSAO' };
     },
@@ -168,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (senha?: string) => {
       if (!usuario) return;
       await authService.reautenticar(senha);
+      // 1) Domínio: anonimiza (BFF → DELETE /usuarios/me). 2) Firestore: dados do usuário.
+      // 3) Firebase Auth: a conta de login. Nessa ordem, para o token ainda valer no passo 1.
       await usuarioService.excluirConta();
       await userDataService.limpar(usuario.uid).catch(() => undefined);
       await authService.excluirConta();

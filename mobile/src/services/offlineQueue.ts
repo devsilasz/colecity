@@ -86,8 +86,6 @@ export async function executarAcao(acao: AcaoOffline, idempotencyKey: string): P
         { texto: acao.texto, fotos },
         idempotencyKey,
       );
-      // Comentário já gravado (também quando sai da fila offline): avisa a API de push.
-      void notificacoes.avisarEvento(acao.ocorrenciaId, 'comentario', comentario.id);
       return { tipo: acao.tipo, comentario };
     }
   }

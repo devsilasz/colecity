@@ -8,10 +8,7 @@ import { OCORRENCIAS_SEMENTE } from './ocorrencias';
 import { LINHAS_SEMENTE } from './transporte';
 import { UID_DEMO, USUARIOS_SEMENTE } from './usuarios';
 
-/**
- * Monta os dados iniciais a partir das sementes. Módulo sem dependência de React Native:
- * é usado pelo banco mock (no app) e pelo script `scripts/seed-firestore.ts` (no Node).
- */
+/** Monta os dados iniciais do banco mock a partir das sementes (sem dependência de React Native). */
 
 export function idSemente(prefixo: string, numero: number): string {
   return `${prefixo}000000-0000-4000-8000-${String(numero).padStart(12, '0')}`;

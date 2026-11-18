@@ -216,3 +216,18 @@ O projeto Firebase está no plano Spark, sem Cloud Functions. Enquanto o BFF nã
 ## Nota — fotos sem Firebase Storage (decisão de 17/11/2026)
 
 Sem o plano Blaze, as fotos são guardadas no **Vercel Blob** pela API em `push-api/` (`POST /fotos`), que valida o ID token do Firebase e decide o caminho no servidor. O app não tem a chave do armazenamento. Quando o BFF existir, ele assume este endpoint.
+
+## Nota — integração ponta a ponta (decisão de 18/11/2026)
+
+Substitui as duas notas anteriores. O fluxo volta ao desenho original, com outra hospedagem:
+
+```
+App (Expo) --Bearer <ID token Firebase>--> BFF (Vercel) --X-Service-Key + X-User-Id--> API C# (Render) /api/v1
+                                            ^                                                   |
+                                            +---------- POST /eventos-dominio (outbox) ---------+
+```
+
+- **BFF** em `bff/` (Node + TypeScript na Vercel, antiga `push-api/`): valida o ID token, repassa ao domínio com a credencial de serviço, cadastra o usuário no primeiro acesso (`PUT /usuarios/me`), recebe os eventos do domínio e envia o push pelo Expo Push Service. As rotas seguem a seção 11, servidas sob a URL da Vercel.
+- **Fotos:** os bytes ficam no Vercel Blob (`POST /fotos` do BFF, caminho `{ocorrencias|comentarios}/{uid}/{id}.webp`); o domínio guarda só o `path` e valida as regras. O BFF acrescenta a `url` pública nas respostas.
+- **Domínio** no Render (plano gratuito): banco SQLite não persistente, recriado com seed a cada reinício; o serviço dorme sem uso.
+- **Firestore:** só `users/{uid}`. As coleções de domínio do app foram removidas.

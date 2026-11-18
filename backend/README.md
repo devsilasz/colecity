@@ -214,7 +214,7 @@ Para rodar a jornada completa pelo terminal, com a API no ar: `./scripts/demo-ap
 | `SpTrans:Token` | vazio = SPTrans simulada | Token da API Olho Vivo |
 | `Gtfs:Diretorio` | vazio = amostra embutida | Pasta com o GTFS completo da SPTrans |
 | `Geocodificacao:Provedor` | `Nominatim` | `Nominatim` (OpenStreetMap) ou `Simulado` (offline) |
-| `Bff:EventosUrl` | vazio = eventos só em log | URL da função `eventosDominio` do BFF |
+| `Bff:EventosUrl` | vazio = eventos só em log | URL do `POST /eventos-dominio` do BFF |
 | `RateLimit:RequisicoesPorMinuto` | `30` | RN-GER-12 |
 | `Banco:PopularDadosDemo` | `true` | Dados fictícios na primeira execução |
 | `Tarefas:Habilitadas` | `true` | Tarefas em segundo plano |
@@ -237,6 +237,39 @@ Para recriar o banco do zero, apague `src/Colecity.Api/colecity.db` e rode a API
 ```bash
 dotnet test
 ```
+
+Sem o .NET instalado, dá para rodar tudo pelo Docker:
+
+```bash
+# testes
+docker run --rm -v "$PWD:/src" -w /src mcr.microsoft.com/dotnet/sdk:10.0 dotnet test
+# API (imagem de produção) em http://localhost:8080/swagger
+docker build -t colecity-api . && docker run --rm -p 8080:8080 -e Seguranca__ServiceKey=dev colecity-api
+```
+
+### Publicação no Render (gratuito, via Docker)
+
+A API é publicada como **Web Service** gratuito do [Render](https://render.com) a partir do `Dockerfile` desta pasta. O plano gratuito não pede cartão.
+
+1. Em **New → Web Service**, conecte o repositório do GitHub.
+2. Configure: **Language** `Docker`, **Root Directory** `backend`, **Instance Type** `Free`, **Health Check Path** `/health`.
+3. Em **Environment**, cadastre as variáveis:
+
+   | Variável | Valor |
+   |---|---|
+   | `Seguranca__ServiceKey` | segredo longo e aleatório; o **mesmo** valor vai em `DOMINIO_SERVICE_KEY` no BFF |
+   | `Bff__EventosUrl` | `https://<bff>.vercel.app/eventos-dominio` (preencha depois de publicar o BFF) |
+   | `Bff__ServiceKey` | opcional; vazio = usa `Seguranca__ServiceKey` |
+   | `SpTrans__Token` | opcional; vazio = SPTrans simulada |
+   | `Seguranca__AdminKey` | opcional; liga as rotas de moderação |
+   | `RateLimit__RequisicoesPorMinuto` | `120`. As consultas anônimas chegam todas pelo IP do BFF e dividem a mesma cota; os usuários logados são limitados por uid |
+
+4. Clique em **Create Web Service**. O Render compila a imagem e publica em `https://<servico>.onrender.com`. O Swagger fica em `/swagger`.
+
+**Limitações do plano gratuito:**
+
+- **O banco não é persistente.** O SQLite fica no disco do container, que é apagado a cada reinício ou deploy. Na inicialização, a API reaplica as migrations e o seed de demonstração, então os dados **voltam ao estado inicial**, e eventos pendentes no outbox se perdem.
+- **O serviço dorme** após cerca de 15 minutos sem requisições. A primeira chamada depois disso leva até um minuto. Antes de uma demonstração, abra `/health` para acordá-lo.
 
 ---
 
@@ -293,7 +326,7 @@ O título "Tipo – Rua, Bairro" (RN-REG-07) usa o **Nominatim**, que é gratuit
 
 ### Eventos para o BFF
 
-`ocorrencia.estado_alterado`, `ocorrencia.comentario_criado` e `transporte.desvio_confirmado` são enviados para `Bff:EventosUrl` com `X-Service-Key`, `eventId` único e `destinatariosUids` calculados pelo domínio: autor, afetados e apoiadores, sem quem causou o evento. Enquanto o BFF não estiver publicado, os eventos ficam registrados no log, sem uid nem e-mail (LGPD).
+A cada 10 s, a tarefa `PublicadorEventosTarefa` lê o outbox e envia `ocorrencia.estado_alterado`, `ocorrencia.comentario_criado` e `transporte.desvio_confirmado` para `Bff:EventosUrl` (`POST /eventos-dominio` do BFF) com `X-Service-Key`, `eventId` único e `destinatariosUids` calculados pelo domínio: autor, afetados e apoiadores, sem quem causou o evento. Enquanto o BFF não estiver publicado, os eventos ficam registrados no log, sem uid nem e-mail (LGPD).
 
 ---
 

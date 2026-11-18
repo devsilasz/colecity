@@ -136,8 +136,13 @@ public abstract class Ocorrencia : EntidadeBase, IConteudoModeravel
             Descricao = ValidarDescricao(descricao);
         if (fotos is not null)
         {
-            var novas = Foto.CriarLista(fotos, usuario);
-            _fotos.Clear();
+            // Fotos já da ocorrência continuam valendo mesmo em outra pasta (autoria transferida na
+            // reabertura); só as novas precisam estar na pasta de quem edita.
+            var mantidas = _fotos.Where(f => fotos.Contains(f.Path)).ToList();
+            var novas = Foto.CriarLista(fotos.Where(p => mantidas.All(f => f.Path != p)).ToList(), usuario);
+            if (mantidas.Count + novas.Count > Foto.MaximoPorRecurso)
+                throw new DomainException(CodigosErro.LimiteFotosExcedido, $"Envie no máximo {Foto.MaximoPorRecurso} fotos.", "fotos");
+            _fotos.RemoveAll(f => !mantidas.Contains(f));
             _fotos.AddRange(novas);
         }
     }
@@ -228,9 +233,12 @@ public abstract class Ocorrencia : EntidadeBase, IConteudoModeravel
         MotivoConclusao = null;
         FeedbackConclusao = null;
         _fotosConclusao.Clear();
+        // Quem reabre passa a ser o autor (edita e conclui); o autor anterior segue como afetado
+        // (decisão de 18/11/2026, RN-ACO-07).
+        AutorId = usuario.Id;
         RegistrarAtividade(agora);
         AlterarEstado(EstadoOcorrencia.EmAcompanhamento, TipoEventoLinhaDoTempo.Reaberta,
-            "Reaberta por uma pessoa afetada", usuario.Id, agora);
+            "Reaberta por uma pessoa afetada, que passa a acompanhar como autora", usuario.Id, agora);
     }
 
     /// <summary>Comentários só em ocorrências não concluídas (RN-COM-01, RN-ACO-08).</summary>

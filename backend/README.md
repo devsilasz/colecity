@@ -268,7 +268,7 @@ A API é publicada como **Web Service** gratuito do [Render](https://render.com)
 
 **Limitações do plano gratuito:**
 
-- **O banco não é persistente.** O SQLite fica no disco do container, que é apagado a cada reinício ou deploy. Na inicialização, a API reaplica as migrations e o seed de demonstração, então os dados **voltam ao estado inicial**, e eventos pendentes no outbox se perdem.
+- **O banco não é persistente.** O SQLite fica no disco do container, que é apagado a cada reinício ou deploy. Na inicialização, a API reaplica as migrations e o seed de demonstração, então os dados **voltam ao estado inicial**, e eventos pendentes no outbox se perdem. As regras guardam todo o histórico para auditoria (ocorrências nunca são apagadas, RN-ACO-08); manter esse histórico exige banco persistente em produção.
 - **O serviço dorme** após cerca de 15 minutos sem requisições. A primeira chamada depois disso leva até um minuto. Antes de uma demonstração, abra `/health` para acordá-lo.
 
 ---

@@ -167,8 +167,8 @@ Módulo independente: nenhum outro módulo depende dele.
 | RN-ACO-04 | Apenas o autor pode marcar a ocorrência como Concluída, a qualquer momento. |
 | RN-ACO-05 | Ao concluir, o autor pode deixar um feedback de finalização com texto e até 3 fotos (ex.: foto do buraco tampado, "a Prefeitura arrumou"). O feedback aparece em destaque no topo da ocorrência. O texto do feedback tem até 500 caracteres. |
 | RN-ACO-06 | Encerramento automático por inatividade (sem comentário, participação ou evento): 7 dias para Água e Energia; 30 dias para as demais categorias. |
-| RN-ACO-07 | Qualquer afetado pode reabrir uma ocorrência concluída em até 7 dias; ela volta para Em acompanhamento. Relatos de Segurança não podem ser reabertos. |
-| RN-ACO-08 | Ocorrências concluídas continuam consultáveis, saem da lista padrão e não aceitam comentários nem participação. |
+| RN-ACO-07 | Qualquer afetado pode reabrir uma ocorrência concluída em até 7 dias; ela volta para Em acompanhamento e **quem reabriu passa a ser o autor** (edita e conclui); o autor anterior continua como afetado (decisão de 18/11/2026). Relatos de Segurança não podem ser reabertos. |
+| RN-ACO-08 | Ocorrências concluídas continuam consultáveis, saem da lista padrão e não aceitam comentários nem participação. Ocorrências nunca são apagadas do domínio: o histórico completo (linha do tempo, conclusão, autoria) fica guardado para auditoria, mesmo depois de anos (decisão de 18/11/2026). |
 | RN-ACO-09 | Relatos de Segurança não têm ciclo de acompanhamento: ficam Abertos por 30 dias (contando para a Zona de atenção) e depois são concluídos automaticamente. |
 | RN-ACO-10 | Se a conta do autor for excluída (anonimizada), a ocorrência segue ativa com "Usuário removido" e só é concluída pelo encerramento automático. |
 

@@ -31,7 +31,7 @@ public static class DataSeeder
 
         var faltaAgua = Registrar(Categoria.Agua, TipoOcorrencia.FaltaAbastecimento,
             "Sem água desde ontem às 18h. A rua inteira está sem abastecimento.",
-            new(-23.5512, -46.5998), new("Rua Taquari", "Mooca"), u[0], Dias(2), ["ocorrencias/demo-ana/taquari-1.webp"]);
+            new(-23.5512, -46.5998), new("Rua Taquari", "Mooca"), u[0], Dias(2), []);
         Participar(faltaAgua, TipoParticipacao.Afetado, Dias(1.8), u[1], u[2], u[3], u[4]);
         Participar(faltaAgua, TipoParticipacao.Apoio, Dias(1.5), u[5], u[6]);
         comentarios.Add(faltaAgua.Comentar(u[1], "Ainda sem água na altura do nº 300.", null, Dias(1)));

@@ -210,6 +210,26 @@ public class OcorrenciaTests
     }
 
     [Fact]
+    public void Quem_reabre_vira_autor_e_mantem_as_fotos_do_autor_anterior()
+    {
+        var fotoAntiga = $"ocorrencias/{_autor.Uid}/1.webp";
+        var o = Fabrica.Ocorrencia(_autor, fotos: [fotoAntiga]);
+        o.MarcarParticipacao(_vizinho, TipoParticipacao.Afetado, Agora);
+        o.Concluir(_autor, "Resolvido", null, Agora);
+
+        o.Reabrir(_vizinho, Agora.AddDays(1));
+
+        Assert.True(o.EhAutor(_vizinho.Id));
+        Assert.True(o.Participa(_autor.Id, TipoParticipacao.Afetado));
+        Erro<AcessoNegadoException>(() => o.Concluir(_autor, null, null, Agora.AddDays(1)), CodigosErro.SomenteAutor);
+
+        var fotoNova = $"ocorrencias/{_vizinho.Uid}/2.webp";
+        o.Editar(_vizinho, null, [fotoAntiga, fotoNova]);
+        Assert.Equal([fotoAntiga, fotoNova], o.Fotos.Select(f => f.Path));
+        Erro<DomainException>(() => o.Editar(_vizinho, null, [$"ocorrencias/{_autor.Uid}/3.webp"]), CodigosErro.FotoInvalida);
+    }
+
+    [Fact]
     public void Seguranca_nao_pode_ser_reaberta()
     {
         var o = Seguranca(null);

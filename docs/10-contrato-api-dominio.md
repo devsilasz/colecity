@@ -289,7 +289,7 @@ Só `descricao` e `fotos` (substitui a lista). Não autor → `403 SOMENTE_AUTOR
 `feedback` opcional (até 500), fotos opcionais (até 3) (RN-ACO-04, 05). Não autor → `403 SOMENTE_AUTOR`. Já concluída → `409 OCORRENCIA_CONCLUIDA`. Evento `CONCLUIDA`; dispara `ocorrencia.estado_alterado`.
 
 #### `POST /ocorrencias/{id}/reabertura` 🔒
-Regras de RN-ACO-07. Não afetado → `403 SOMENTE_AFETADO`. Fora do prazo → `422 PRAZO_REABERTURA_EXPIRADO`. Segurança → `422 REABERTURA_NAO_PERMITIDA`. Estado volta a `EM_ACOMPANHAMENTO`; evento `REABERTA`.
+Regras de RN-ACO-07. Não afetado → `403 SOMENTE_AFETADO`. Fora do prazo → `422 PRAZO_REABERTURA_EXPIRADO`. Segurança → `422 REABERTURA_NAO_PERMITIDA`. Estado volta a `EM_ACOMPANHAMENTO`; evento `REABERTA`. Quem reabre passa a ser o autor (`podeEditar`/`podeConcluir`, aba Registradas); o autor anterior segue como afetado. Na edição, as fotos que já eram da ocorrência continuam aceitas mesmo na pasta do autor anterior; só as novas precisam estar na pasta de quem edita.
 
 > Não existe endpoint de exclusão de ocorrência (RN-REG-10).
 

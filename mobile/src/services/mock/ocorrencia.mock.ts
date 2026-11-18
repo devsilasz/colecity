@@ -302,12 +302,14 @@ export const ocorrenciaMock: OcorrenciaService = {
     const agora = new Date().toISOString();
     // RN-ACO-07: volta para Em acompanhamento.
     ocorrencia.estado = 'EM_ACOMPANHAMENTO';
+    // Quem reabre passa a ser o autor; o anterior segue como afetado (decisão de 18/11/2026).
+    ocorrencia.autorId = usuario.id;
     ocorrencia.concluidaEm = null;
     ocorrencia.conclusao = null;
     ocorrencia.ultimaAtividadeEm = agora;
     ocorrencia.linhaDoTempo = [
       ...ocorrencia.linhaDoTempo,
-      { tipo: 'REABERTA', descricao: 'Reaberta por uma pessoa afetada', em: agora },
+      { tipo: 'REABERTA', descricao: 'Reaberta por uma pessoa afetada, que passa a acompanhar como autora', em: agora },
     ];
     await salvarBanco();
     return paraDetalhe(db, ocorrencia, usuario.id, calcularZonas(db));

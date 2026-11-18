@@ -1,8 +1,8 @@
 {
-  "name": "colecity-push-api",
+  "name": "colecity-bff",
   "version": "1.0.0",
   "private": true,
-  "description": "API de push do Colecity (Vercel): valida o evento e envia pelo Expo Push Service.",
+  "description": "BFF mobile do Colecity (Vercel): valida o Firebase, repassa ao domínio C#, fotos e push.",
   "engines": {
     "node": ">=20"
   },

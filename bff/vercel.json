@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/proxy.ts": { "maxDuration": 60 },
+    "api/health.ts": { "maxDuration": 15 }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/fotos", "destination": "/api/fotos" },
+    { "source": "/eventos-dominio", "destination": "/api/eventos-dominio" },
+    { "source": "/:rota((?!api/).*)", "destination": "/api/proxy?__rota=/:rota" }
+  ]
+}

@@ -273,7 +273,7 @@ mobile/
 
 ## Limitações conhecidas
 
-- **Transporte:** só 4 linhas (8700-10, 875A-10, 5119-10, 3301-10), da amostra do GTFS da API de domínio, com trajetos aproximados. A aba Transporte avisa isso.
+- **Transporte:** só ônibus da SPTrans (sem metrô e trem). Os trajetos oficiais são simplificados com tolerância de 10 m. No modo mock, só existem as linhas fictícias.
 - **Hospedagem gratuita:** a API de domínio no Render dorme após cerca de 15 minutos sem uso (a primeira chamada leva até um minuto) e volta aos dados de demonstração quando reinicia. Contas do Firebase continuam valendo: o BFF recadastra a conta no domínio no primeiro acesso.
 - **"Ao vivo":** o detalhe da ocorrência e os comentários são atualizados a cada 20 segundos enquanto a tela está aberta, não por um canal de tempo real.
 - **Fotos antigas:** as tiradas antes da integração com o Vercel Blob ficaram só no aparelho de quem tirou. Excluir a conta não apaga as fotos já publicadas, que fazem parte das ocorrências.

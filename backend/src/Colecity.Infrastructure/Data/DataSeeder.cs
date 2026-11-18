@@ -40,7 +40,7 @@ public static class DataSeeder
         var atraso8700 = Registrar(Categoria.Transporte, TipoOcorrencia.AtrasoIntervaloExcessivo,
             "O 8700 está passando com intervalo de mais de 40 minutos no fim da tarde.",
             new(-23.5250, -46.6950), new("Av. Francisco Matarazzo", "Água Branca"), u[1], Dias(3), [],
-            new LinhaReferencia("8700-10", "Pq. Continental – Pça. Ramos"));
+            new LinhaReferencia("8700-10", "Term. Campo Limpo – Pça. Ramos de Azevedo"));
         Participar(atraso8700, TipoParticipacao.Afetado, Dias(2), u[0], u[2], u[3], u[4], u[5], u[6], u[7], u[8], u[9], u[10]);
         Participar(atraso8700, TipoParticipacao.Apoio, Dias(1), u[11]);
         comentarios.Add(atraso8700.Comentar(u[2], "Hoje esperei 50 minutos no ponto da Pompeia.", null, Dias(0.8)));

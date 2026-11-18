@@ -11,6 +11,8 @@ COPY --from=build /app/publish .
 # reinício/deploy o banco é recriado (migrations + seed de demonstração na inicialização).
 RUN mkdir -p /app/data && chown -R app:app /app/data
 USER app
+COPY gtfs-sptrans/*.txt /app/gtfs/
+ENV Gtfs__Diretorio=/app/gtfs
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ConnectionStrings__Colecity="Data Source=/app/data/colecity.db" \
     PORT=8080

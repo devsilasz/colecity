@@ -20,16 +20,16 @@ import { mensagemDeErro } from '@/services/erros';
 import { espacos } from '@/theme';
 
 /**
- * Linhas cobertas nesta versão. A API de domínio usa uma amostra do GTFS da SPTrans com estas 4 linhas
- * (`backend/src/Colecity.Infrastructure/Transporte/Gtfs/routes.txt`); o mock tem as suas próprias.
+ * Com a API de domínio, a busca cobre todas as linhas de ônibus do GTFS da SPTrans; a tela sugere
+ * algumas como atalho. O mock só tem as linhas fictícias dele, e a tela avisa isso.
  */
-const LINHAS_COBERTAS: { codigo: string; nome: string }[] = env.usarMock
+const LINHAS_SUGERIDAS: { codigo: string; nome: string }[] = env.usarMock
   ? LINHAS_SEMENTE.map(({ codigo, nome }) => ({ codigo, nome }))
   : [
-      { codigo: '8700-10', nome: 'Pq. Continental – Pça. Ramos' },
-      { codigo: '875A-10', nome: 'Perdizes – Metrô Butantã' },
-      { codigo: '5119-10', nome: 'Term. Capelinha – Metrô Santa Cruz' },
-      { codigo: '3301-10', nome: 'Cid. Tiradentes – Metrô Itaquera' },
+      { codigo: '8700-10', nome: 'Term. Campo Limpo – Pça. Ramos de Azevedo' },
+      { codigo: '875A-10', nome: 'Aeroporto – Perdizes' },
+      { codigo: '5119-10', nome: 'Term. Capelinha – Lgo. São Francisco' },
+      { codigo: '3301-10', nome: 'Term. São Miguel – Term. Pq. D. Pedro II' },
     ];
 
 /** Transporte ao vivo: busca da linha por número ou nome, aberta a visitantes (RN-TAV-01). */
@@ -89,7 +89,11 @@ export default function TransporteScreen() {
                 <EmptyState
                   icone="bus-outline"
                   titulo="Nenhuma linha encontrada"
-                  descricao={`Confira o número ou tente parte do nome. Nesta versão, cobrimos as linhas ${LINHAS_COBERTAS.map((l) => l.codigo).join(', ')}.`}
+                  descricao={
+                    env.usarMock
+                      ? `Confira o número ou tente parte do nome. No modo de demonstração, só existem as linhas ${LINHAS_SUGERIDAS.map((l) => l.codigo).join(', ')}.`
+                      : 'Confira o número ou tente parte do nome. A busca cobre as linhas de ônibus da SPTrans (não inclui metrô e trem).'
+                  }
                 />
               </Card>
             ) : (
@@ -123,18 +127,20 @@ export default function TransporteScreen() {
 
       {!buscando ? (
         <>
-          <SectionTitle>Linhas disponíveis</SectionTitle>
+          <SectionTitle>{env.usarMock ? 'Linhas disponíveis' : 'Sugestões'}</SectionTitle>
           <AppText variante="subtitulo" cor="textoSecundario">
-            Nesta versão, o Colecity cobre só estas linhas. Toque em uma para abrir.
+            {env.usarMock
+              ? 'No modo de demonstração, o Colecity tem só estas linhas. Toque em uma para abrir.'
+              : 'Todas as linhas de ônibus da SPTrans estão na busca. Algumas para começar:'}
           </AppText>
           <Card semPadding>
-            {LINHAS_COBERTAS.map((linha, indice) => (
+            {LINHAS_SUGERIDAS.map((linha, indice) => (
               <ListRow
                 key={linha.codigo}
                 icone="bus-outline"
                 titulo={linha.codigo}
                 descricao={linha.nome}
-                divisor={indice < LINHAS_COBERTAS.length - 1}
+                divisor={indice < LINHAS_SUGERIDAS.length - 1}
                 onPress={() => abrir(linha.codigo)}
               />
             ))}

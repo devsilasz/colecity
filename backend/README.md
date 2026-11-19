@@ -92,12 +92,12 @@ classDiagram
         +EstadoOcorrencia Estado
         +int TotalAfetados
         +int TotalApoios
-        #TemCicloDeAcompanhamento*
-        #PrazoInatividade*
-        +PermiteReabertura*
-        +ExibeApoiadores*
-        +SugereSemelhantes*
-        +ContaParaZonaDeAtencao*
+        #bool TemCicloDeAcompanhamento
+        #TimeSpan PrazoInatividade
+        +bool PermiteReabertura
+        +bool ExibeApoiadores
+        +bool SugereSemelhantes
+        +bool ContaParaZonaDeAtencao
         +MarcarParticipacao(usuario, tipo, agora)
         +RetirarParticipacao(usuario, tipo, agora)
         +Concluir(usuario, feedback, fotos, agora)
@@ -105,12 +105,24 @@ classDiagram
         +EncerrarSeVencida(agora)
         +Comentar(usuario, texto, fotos, agora)
     }
-    class OcorrenciaTransporte { +LinhaCodigo +RegistrarDesvio() }
-    class OcorrenciaSeguranca { +DataHoraOcorrido }
+    class OcorrenciaTransporte {
+        +string LinhaCodigo
+        +RegistrarDesvio()
+    }
+    class OcorrenciaSeguranca {
+        +DateTime DataHoraOcorrido
+    }
     class OcorrenciaServicoEssencial
     class OcorrenciaGeral
-    class Coordenada { <<value object>> +DistanciaMetros() +Aproximada() }
-    class Viagem { +RegistrarPosicao() +ResponderDesvio() }
+    class Coordenada {
+        <<value object>>
+        +DistanciaMetros()
+        +Aproximada()
+    }
+    class Viagem {
+        +RegistrarPosicao()
+        +ResponderDesvio()
+    }
     Ocorrencia <|-- OcorrenciaTransporte
     Ocorrencia <|-- OcorrenciaSeguranca
     Ocorrencia <|-- OcorrenciaServicoEssencial
@@ -123,6 +135,9 @@ classDiagram
     Viagem "1" *-- "N" PosicaoViagem
     Usuario "1" -- "N" Ocorrencia : autor
     Denuncia ..> IConteudoModeravel
+    class IConteudoModeravel {
+        <<interface>>
+    }
     IConteudoModeravel <|.. Ocorrencia
     IConteudoModeravel <|.. Comentario
     IConteudoModeravel <|.. Foto

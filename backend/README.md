@@ -72,7 +72,7 @@ Arquitetura em camadas (inspirada em Clean Architecture). Cada camada só conhec
 │ Colecity.Infrastructure EF Core + SQLite · migrations · consultas LINQ ·    │
 │                         GTFS · Olho Vivo · Nominatim · outbox → BFF        │
 └──────────────────────────────────────────────────────────────────────────┘
-        tests/Colecity.Tests: 107 testes (domínio, aplicação + banco real, HTTP)
+        tests/Colecity.Tests: 109 testes (domínio, aplicação + banco real, HTTP)
 ```
 
 Decisões que vale destacar:
@@ -266,9 +266,9 @@ A API é publicada como **Web Service** gratuito do [Render](https://render.com)
 
 4. Clique em **Create Web Service**. O Render compila a imagem e publica em `https://<servico>.onrender.com`. O Swagger fica em `/swagger`.
 
-**Limitações do plano gratuito:**
+**Como funciona no plano gratuito:**
 
-- **O banco não é persistente.** O SQLite fica no disco do container, que é apagado a cada reinício ou deploy. Na inicialização, a API reaplica as migrations e o seed de demonstração, então os dados **voltam ao estado inicial**, e eventos pendentes no outbox se perdem. As regras guardam todo o histórico para auditoria (ocorrências nunca são apagadas, RN-ACO-08); manter esse histórico exige banco persistente em produção.
+- **O banco não é persistente.** O SQLite fica no disco do container, que é apagado a cada reinício ou deploy. Na inicialização, a API reaplica as migrations e o seed de demonstração, então os dados **voltam ao estado inicial**, e eventos pendentes no outbox se perdem. As regras guardam todo o histórico para auditoria (ocorrências nunca são apagadas, RN-ACO-08).
 - **GTFS real:** a imagem Docker usa o GTFS completo da SPTrans em `gtfs-sptrans/` (todas as linhas de ônibus, trajetos simplificados; ver o LEIAME da pasta), via `Gtfs__Diretorio=/app/gtfs`. A importação é feita **no build da imagem** (`dotnet Colecity.Api.dll --preparar-banco`), e o banco já vai pronto: ao subir, a API só aplica o seed (cerca de 36 s e 73 MB no limite do Render). Na imagem, a reimportação diária fica desligada (`Gtfs__ReimportarDiariamente=false`), porque os arquivos só mudam com um novo deploy.
 - **O serviço dorme** após cerca de 15 minutos sem requisições. A primeira chamada depois disso leva até um minuto. Antes de uma demonstração, abra `/health` para acordá-lo.
 
@@ -406,7 +406,7 @@ Em [`docs/evidencias`](docs/evidencias):
 
 - [`01-swagger-documentacao.png`](docs/evidencias/01-swagger-documentacao.png) e [`01-scalar-documentacao.png`](docs/evidencias/01-scalar-documentacao.png): documentação automática
 - [`02-chamadas-api.md`](docs/evidencias/02-chamadas-api.md): jornada completa com requisições e respostas reais, gerada por `./scripts/demo-api.sh`. Passa por cadastro, consulta, semelhantes, registro idempotente, participação, comentário, conclusão, erros, mapa, transporte com desvio e exclusão de conta
-- [`03-testes-automatizados.txt`](docs/evidencias/03-testes-automatizados.txt): execução dos 107 testes
+- [`03-testes-automatizados.txt`](docs/evidencias/03-testes-automatizados.txt): execução dos 109 testes
 
 ---
 
@@ -420,7 +420,7 @@ Em [`docs/evidencias`](docs/evidencias):
 | **Web API (2,5)** | 8 controllers com 32 operações REST versionadas (`/api/v1`), mais o health check, com verbos e status corretos (`201` + `Location`, `204`, `400`, `401`, `403`, `404`, `409`, `422`, `429`). Inclui autenticação por esquema próprio com políticas, filtro de idempotência, rate limit, ProblemDetails com `code`, model binder para enums em `UPPER_SNAKE_CASE`, paginação, health check e OpenAPI com Swagger e Scalar |
 | **EF Core + LINQ (1,5)** | `ColecityDbContext` com 17 tabelas, herança TPH com discriminador, tipos owned (`Coordenada`) e coleções owned (`Foto`), conversões (enums como texto, listas como JSON, datas UTC), índices únicos, migrations e split queries. LINQ to Entities: `GroupBy` com `COUNT(DISTINCT)` (mapa de calor), `join` (apoiadores, eventos), `OfType` (TPH), filtered include (últimas posições da viagem), `ExecuteDelete` (limpeza), filtros dinâmicos e paginação. LINQ to Objects nas regras (`Zip`, `GroupBy`, `MaxBy`, agregações) |
 | **Async/Await (1,0)** | Toda a pilha é assíncrona e propaga `CancellationToken`, de controllers e serviços até EF Core e `HttpClient`. `Task.WhenAll` consulta a SPTrans e o banco em paralelo. Há 6 tarefas em `BackgroundService` com `PeriodicTimer`, e o filtro de idempotência é um `IAsyncActionFilter` |
-| **Qualidade do código (2,0)** | Arquitetura em camadas com dependências para dentro, injeção de dependência, SOLID, `TreatWarningsAsErrors`, nullable habilitado, nomes do domínio em português, regras referenciadas pelos códigos do doc 07, `TimeProvider` para testabilidade, 107 testes, README, evidências e documentação OpenAPI |
+| **Qualidade do código (2,0)** | Arquitetura em camadas com dependências para dentro, injeção de dependência, SOLID, `TreatWarningsAsErrors`, nullable habilitado, nomes do domínio em português, regras referenciadas pelos códigos do doc 07, `TimeProvider` para testabilidade, 109 testes, README, evidências e documentação OpenAPI |
 
 ### Arquitetura Orientada a Serviços (SOA) e Web Services
 
@@ -430,7 +430,7 @@ Em [`docs/evidencias`](docs/evidencias):
 | **Conexão com banco de dados (3,0)** | EF Core + SQLite registrado via injeção de dependência com string de conexão configurável. Repositórios e Unit of Work, relacionamentos 1:N com FKs, `Cascade` e `Restrict`, consultas geográficas, transação na importação do GTFS e outbox na mesma transação da operação. Também consome 2 APIs REST externas (SPTrans Olho Vivo e Nominatim) via `IHttpClientFactory` e publica eventos em uma terceira (BFF) |
 | **Migrações (1,5)** | Migration em `Data/Migrations`, aplicada automaticamente na inicialização (`InicializarBancoAsync`) e também via `dotnet ef database update`. Os testes rodam sobre as mesmas migrations |
 | **Documentação automática (1,5)** | OpenAPI 3.1 gerado a partir dos controllers e XML comments, com descrições, códigos de erro por operação, esquemas de segurança (`X-Service-Key`, `X-User-Id`, `X-Admin-Key`) e o header `Idempotency-Key` nas criações. Interfaces interativas em `/swagger` e `/scalar` |
-| **Testes automatizados (1,0)** | 107 testes xUnit: domínio (regras de todos os módulos), aplicação com banco SQLite real e migrations (consultas, semelhantes, anonimização, moderação, outbox), tarefas agendadas, GTFS, cliente HTTP da SPTrans e integração HTTP de ponta a ponta com `WebApplicationFactory` (autenticação, idempotência, rate limit, contrato JSON, transporte) |
+| **Testes automatizados (1,0)** | 109 testes xUnit: domínio (regras de todos os módulos), aplicação com banco SQLite real e migrations (consultas, semelhantes, anonimização, moderação, outbox), tarefas agendadas, GTFS, cliente HTTP da SPTrans e integração HTTP de ponta a ponta com `WebApplicationFactory` (autenticação, idempotência, rate limit, contrato JSON, transporte) |
 
 ---
 
@@ -442,12 +442,6 @@ Em [`docs/evidencias`](docs/evidencias):
 - **Geocodificação:** OpenStreetMap via Nominatim (dados abertos, licença ODbL).
 - **Limite municipal:** polígono simplificado do contorno de São Paulo (`MunicipioSaoPaulo`). Em produção, entra o polígono oficial do GeoSampa ou do IBGE, sem mudar o algoritmo.
 - **LGPD:** localização pública aproximada (~100 m); posições de passageiros apagadas em 24 h; anonimização completa na exclusão de conta; logs sem uid, e-mail ou token.
-
-## Limitações e próximos passos
-
-- O BFF (Firebase Cloud Functions) ainda não está publicado. Por isso o app usa o mock que segue este mesmo contrato, e os eventos de push ficam no log.
-- Em produção: banco gerenciado com extensão geográfica (PostgreSQL + PostGIS), polígono oficial do município e GTFS completo.
-- Mapa de calor calculado na consulta. Com volume grande, a agregação passa para uma view materializada, como sugere o doc 07.
 
 ## Uso de IA
 

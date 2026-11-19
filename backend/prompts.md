@@ -33,4 +33,4 @@ A IA foi usada como copiloto no desenvolvimento do backend, como permitem as reg
 | Contrato | Implementar os endpoints, modelos, enums `UPPER_SNAKE_CASE`, paginação e Problem Details do doc 10 | Respostas comparadas com os exemplos do doc 10 e com o mock do app |
 | Integrações | Geocodificação (Nominatim), amostra de GTFS, Olho Vivo com cache, outbox de eventos para o BFF | Decisão de usar dados simulados por padrão, com o caminho real documentado |
 | Depuração | Corrigir a instância de value object owned compartilhada entre entidades (EF gravava nulo) e as datas sem `Z` do SQLite | Testes de regressão e testes manuais com `curl` |
-| Testes | Testes de domínio, de aplicação com banco real, de tarefas e de integração HTTP | `dotnet test`: 107 aprovados |
+| Testes | Testes de domínio, de aplicação com banco real, de tarefas e de integração HTTP | `dotnet test`: 109 aprovados |

@@ -179,8 +179,3 @@ src/
   http.ts             erros (Problem Details) e utilitários
 vercel.json           rewrites para /api/*
 ```
-
-## Limitações
-
-- O limite de 30 minutos descarta os comentários seguintes em vez de agrupá-los numa notificação posterior: o plano gratuito não tem tarefa agendada.
-- O domínio no Render gratuito dorme sem uso; a primeira chamada pode levar até um minuto (o BFF espera até 55 s).

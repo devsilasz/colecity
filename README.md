@@ -85,7 +85,7 @@ O plano gratuito do Render dorme após cerca de 15 minutos sem uso (um ping a ca
 
 - **App rodando (Mobile, até 3 min):** https://youtu.be/xssyI-scp5E
 - **App rodando — gravação completa, sem cortes:** https://youtu.be/1o-T05mNc84
-- **Pitch (até 4 min):** _a preencher_
+- **Pitch (até 4 min):** https://youtu.be/3W9llloW2P0
 
 ## Como rodar
 

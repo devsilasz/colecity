@@ -49,6 +49,6 @@ Transporte, Água, Energia, Vias, Árvores, Segurança e Riscos e infraestrutura
 - **Público:** moradores e usuários de serviços urbanos da cidade.
 - **Problema:** dificuldade de conhecer e reunir informações e manifestações sobre problemas urbanos compartilhados.
 - **Como funciona:** app em que o cidadão consulta, registra e acompanha ocorrências por categoria e localização, com participação coletiva.
-- **Tecnologias:** app React Native/Expo, BFF em Firebase Cloud Functions, API de domínio em C#/.NET, Firebase (Auth, Firestore, Storage, FCM), dados da SPTrans (GTFS e Olho Vivo).
+- **Tecnologias:** app React Native/Expo, BFF em Node/TypeScript na Vercel, API de domínio em C#/.NET no Render, Firebase (Authentication e Firestore), Vercel Blob (fotos), Expo Push com FCM, dados da SPTrans (GTFS e Olho Vivo).
 - **Indicadores:** ocorrências registradas, afetados e apoios por ocorrência, ocorrências concluídas, desvios de rota detectados.
 - **ODS:** 11 (Cidades e comunidades sustentáveis), 10 (Redução das desigualdades), 9 (Indústria, inovação e infraestrutura).

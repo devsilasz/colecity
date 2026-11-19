@@ -1,6 +1,6 @@
 # 10 — Contrato da API de domínio
 
-Contrato entre o **BFF mobile** (Firebase Cloud Functions) e a **API de domínio** (C#/.NET). As regras citadas estão em [07](07-regras-de-negocio-produto.md); a arquitetura em [08](08-arquitetura.md).
+Contrato entre o **BFF mobile** (Node + TypeScript na Vercel, pasta `bff/`) e a **API de domínio** (C#/.NET). As regras citadas estão em [07](07-regras-de-negocio-produto.md); a arquitetura em [08](08-arquitetura.md).
 
 A API de domínio é a única dona das regras de negócio: toda validação listada aqui é feita nela, mesmo que o app ou o BFF também validem antes.
 
@@ -96,7 +96,7 @@ Cada tipo pertence a exatamente uma categoria. Tipo incompatível com a categori
 
 ### 3.1 Foto
 
-O app envia a foto ao Firebase Storage e o domínio recebe só a referência.
+O app envia a foto ao BFF (`POST /fotos`), que guarda os bytes no Vercel Blob e decide o caminho. O domínio recebe só a referência (decisão 31 do doc 06).
 
 ```json
 { "path": "ocorrencias/{uid}/{uuid}.webp" }

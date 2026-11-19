@@ -39,12 +39,16 @@ docs/        Documentação do produto: visão, regras de negócio, arquitetura,
 
 ## Arquitetura
 
-```
-App (Expo) --Bearer <ID token Firebase>--> BFF (Vercel) --X-Service-Key + X-User-Id--> API C# (Render) /api/v1
-    |                                       ^   |                                                    |
-    |  Firebase Auth (login)                |   +--> Vercel Blob (fotos)                             |
-    +--> Firestore users/{uid}              +------------ POST /eventos-dominio (push) --------------+
-         (preferências, aparelhos)
+```mermaid
+flowchart LR
+    APP["App (Expo)"] -- "Bearer ID token" --> BFF["BFF (Vercel)"]
+    BFF -- "X-Service-Key + X-User-Id" --> API["API de domínio C# (Render)<br/>/api/v1"]
+    API -- "POST /eventos-dominio (outbox)" --> BFF
+    APP -- "login" --> AUTH["Firebase Auth"]
+    APP -- "users/{uid}" --> FS[("Firestore")]
+    BFF -- "fotos" --> BLOB[("Vercel Blob")]
+    BFF -- "push" --> EXPO["Expo Push → Android"]
+    API -- "GTFS + Olho Vivo" --> SPT["SPTrans"]
 ```
 
 - O **app** faz login no Firebase Authentication e chama só o BFF, levando o ID token. No Firestore ele guarda apenas os dados do próprio usuário (preferências, ocorrências silenciadas, aparelhos para push).
@@ -59,7 +63,7 @@ Detalhes no [doc 08](docs/08-arquitetura.md) (arquitetura) e no [doc 10](docs/10
 | BFF | Vercel, plano Hobby | https://push-api-rho.vercel.app/health |
 | App | APK pelo EAS Build | ver [`mobile/README.md`](mobile/README.md) |
 
-O plano gratuito do Render dorme após cerca de 15 minutos sem uso (a primeira chamada leva até um minuto) e recria o banco com os dados de demonstração a cada reinício.
+O plano gratuito do Render dorme após cerca de 15 minutos sem uso (um ping a cada 5 minutos o mantém acordado) e volta aos dados de demonstração a cada deploy.
 
 | Parte | O que é | Detalhes |
 |---|---|---|

@@ -2,10 +2,14 @@
 
 Backend for Frontend do app Colecity, em Node + TypeScript, publicado como funções serverless na **Vercel** (plano Hobby, gratuito). É a única porta de entrada do app:
 
-```
-App (Expo) --Bearer <ID token Firebase>--> BFF (Vercel) --X-Service-Key + X-User-Id--> API de domínio C# (Render) /api/v1
-                                            ^                                                      |
-                                            +------------ POST /eventos-dominio (outbox) ----------+
+```mermaid
+flowchart LR
+    APP["App (Expo)"] -- "Bearer ID token do Firebase" --> BFF["BFF (Vercel)"]
+    BFF -- "X-Service-Key + X-User-Id" --> API["API de domínio C# (Render)<br/>/api/v1"]
+    API -- "POST /eventos-dominio (outbox)" --> BFF
+    BFF -- "fotos" --> BLOB[("Vercel Blob")]
+    BFF -- "aparelhos e preferências" --> FS[("Firestore")]
+    BFF -- "push" --> EXPO["Expo Push Service"]
 ```
 
 - Valida o **ID token do Firebase** (Admin SDK) e repassa ao domínio identificando o usuário pelo `uid`, com a credencial de serviço. O app nunca vê essa credencial.
@@ -87,6 +91,23 @@ Chamado **pelo domínio** (padrão Outbox), nunca pelo app, com `X-Service-Key`.
   "ocorridoEm": "2026-11-18T14:20:00Z",
   "dados": { "ocorrenciaId": "uuid", "titulo": "Buraco – Rua Aurora, República", "destinatariosUids": ["uid1"] }
 }
+```
+
+```mermaid
+sequenceDiagram
+    participant API as API de domínio
+    participant BFF
+    participant FS as Firestore
+    participant Expo as Expo Push
+    API->>BFF: POST /eventos-dominio (X-Service-Key)
+    BFF->>FS: cria eventosProcessados/{eventId}
+    alt já existia
+        BFF-->>API: 200 { enviado: false, motivo: DUPLICADO }
+    else novo
+        BFF->>FS: users/{uid}, occurrenceState, pushControle, devices
+        BFF->>Expo: envia aos aparelhos ativos
+        BFF-->>API: 200 { enviado, destinatarios, aparelhos }
+    end
 ```
 
 1. Confere a credencial de serviço (comparação em tempo constante).
@@ -177,5 +198,6 @@ src/
   textos.ts           título e corpo da notificação
   firebase.ts         Admin SDK (credencial por variáveis de ambiente)
   http.ts             erros (Problem Details) e utilitários
+  tipos.ts            tipos dos eventos e dos documentos do Firestore
 vercel.json           rewrites para /api/*
 ```

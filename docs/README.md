@@ -11,7 +11,7 @@ Decisões de produto, regras de negócio e arquitetura do Colecity, CitizenTech 
 5. [Testing e critérios de aceite](05-testing-e-criterios.md) — entrega de Testing, Compliance & QA.
 6. [Registro de decisões](06-decisoes-e-perguntas.md) — decisões tomadas, em ordem.
 7. [Regras de negócio do produto](07-regras-de-negocio-produto.md) — todas as regras da v1, com códigos (RN-XXX-NN).
-8. [Arquitetura](08-arquitetura.md) — camadas, Firebase, autenticação, eventos e fluxos.
+8. [Arquitetura](08-arquitetura.md) — diagramas das partes (app, BFF na Vercel, domínio no Render, Firebase), autenticação, eventos, fluxos e tarefas.
 9. [Stack do app mobile](09-stack-mobile.md) — tecnologias, padrões, estrutura e conteúdos aplicados.
 10. [Contrato da API de domínio](10-contrato-api-dominio.md) — endpoints, modelos, erros e eventos entre BFF e domínio.
 11. [Features e critérios de aceite](11-features.md) — 6 épicos e 20 features no padrão da aula.

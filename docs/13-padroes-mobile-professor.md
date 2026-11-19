@@ -51,7 +51,7 @@ Requisitos cobrados pelo professor de Mobile ao longo do semestre, filtrados par
 - **Firestore:** dados do próprio usuário e tokens de dispositivo em `users/{uid}/devices/{deviceId}` (doc 08, seção 8); regras versionadas no repositório.
 - **Storage:** fotos enviadas a serviço de armazenamento; salvar só a URL/caminho; **proibido Base64 no banco**; imagem padrão quando a foto falhar; pedir e tratar permissões.
 - **Push (somente Android):** `expo-notifications` + FCM; development build (não depender do Expo Go); token salvo e atualizado; tratar permissão negada e aparelho sem token; payload com o id do recurso; toque na notificação abre a tela correspondente.
-- **Envio de push pelo BFF (Cloud Functions):** valida o ID token com Admin SDK, calcula destinatários no servidor (nunca confia em lista enviada pelo app), protege contra chamadas duplicadas, remove tokens inválidos, texto sem dados sensíveis, health check.
+- **Envio de push pelo BFF (hoje na Vercel, doc 08):** valida o ID token com Admin SDK, calcula destinatários no servidor (nunca confia em lista enviada pelo app), protege contra chamadas duplicadas, remove tokens inválidos, texto sem dados sensíveis, health check.
 - `firebaseConfig.json` versionado com a configuração pública do SDK cliente; `.env.example` para app e BFF, só com nomes de variáveis.
 
 ## Estados que a interface deve tratar

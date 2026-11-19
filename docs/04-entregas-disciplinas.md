@@ -6,7 +6,7 @@ Todas as disciplinas se relacionam ao Colecity.
 | --- | --- | --- |
 | C# Software Development | API de domínio em C#/.NET com as regras de negócio. | Silas |
 | SOA e Web Services | Mesma API de domínio da disciplina de C#. | Silas |
-| Mobile Development & IoT | App Expo da jornada do cidadão e BFF mobile em Firebase Cloud Functions. | Responsável por Mobile e Testing |
+| Mobile Development & IoT | App Expo da jornada do cidadão e BFF mobile (Node + TypeScript na Vercel). | Responsável por Mobile e Testing |
 | Testing, Compliance & Quality Assurance | Features e Test Cases no Azure Boards, baseados nas regras do doc 07. | Responsável por Mobile e Testing |
 | Inteligência Artificial & Machine Learning | Pergunta de ML com dados públicos ligada ao problema; citada no README e no pitch. | Colega da disciplina |
 | Physical Computing | Circuito ESP32 no Wokwi ligado ao problema; citado no README e no pitch. | Colega da disciplina |

@@ -21,7 +21,7 @@
 | 17 | Fotos enviadas apenas em WebP, comprimidas no aparelho. |
 | 18 | Testing cobre só o ecossistema da plataforma. |
 | 19 | C# e SOA entregam a mesma API de domínio. |
-| 20 | BFF mobile em Firebase Cloud Functions (2ª geração, HTTP nativo, TypeScript, sem framework web); plataforma Firebase completa (plano Blaze). |
+| 20 | BFF mobile em Firebase Cloud Functions (2ª geração, HTTP nativo, TypeScript, sem framework web); plataforma Firebase completa (plano Blaze). *Substituída pelas decisões 30 a 32: sem cartão para o Blaze, o BFF foi para a Vercel.* |
 | 21 | App grava direto no Firestore apenas dados do próprio usuário, com regras de segurança. |
 | 22 | App: Expo SDK mais recente, Expo Router, Context API, Axios com interceptors, TanStack Query, AsyncStorage, formulário dinâmico por JSON, tema light/dark. |
 | 23 | Fora da v1: compartilhamento, push no iOS, localização em segundo plano, Realtime Database, MQTT, comentários em tempo real, versão web. |

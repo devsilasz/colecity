@@ -28,7 +28,7 @@ Esta pasta contém a **API de domínio** do Colecity: a Web API REST que é **do
 | **Cidadão beneficiado** | Moradores e usuários de serviços urbanos da cidade, como transporte, água, energia, vias, árvores, segurança e áreas de risco |
 | **Problema, em uma frase** | Reclamações urbanas feitas de forma individual ficam isoladas: o cidadão não se sente ouvido e o poder público não enxerga a dimensão real do problema |
 | **Como funciona** | O cidadão consulta, registra e acompanha ocorrências por categoria e localização. Outras pessoas marcam "Também estou sendo afetado" ou "Apoiar manifestação", comentam e acompanham a linha do tempo. O transporte ao vivo cruza os dados da SPTrans com a posição de passageiros para detectar desvios de rota |
-| **O que esta parte faz** | API de domínio em C#: regras de negócio, persistência, integrações (SPTrans, geocodificação), tarefas automáticas e eventos para o BFF. O app Expo fala com o BFF (Firebase Cloud Functions), e o BFF fala com esta API |
+| **O que esta parte faz** | API de domínio em C#: regras de negócio, persistência, integrações (SPTrans, geocodificação), tarefas automáticas e eventos para o BFF. O app Expo fala com o BFF (Node + TypeScript na Vercel), e o BFF fala com esta API |
 | **Indicadores de impacto** | Ocorrências registradas · afetados e apoios por ocorrência · ocorrências concluídas · desvios de rota detectados |
 | **ODS** | **11** (cidades e comunidades sustentáveis) · **10** (redução das desigualdades) · **9** (indústria, inovação e infraestrutura) |
 
@@ -38,10 +38,11 @@ Esta pasta contém a **API de domínio** do Colecity: a Web API REST que é **do
 
 ## Onde esta API entra na arquitetura
 
-```
-App Expo ──HTTPS + token Firebase──► BFF (Cloud Functions) ──HTTPS + X-Service-Key──► API de domínio (este projeto)
-                                          ▲                                                 │
-                                          └──────────── eventos de domínio (push) ──────────┘
+```mermaid
+flowchart LR
+    APP["App Expo"] -- "HTTPS + ID token do Firebase" --> BFF["BFF (Vercel)"]
+    BFF -- "HTTPS + X-Service-Key + X-User-Id" --> API["API de domínio<br/>(este projeto, Render)"]
+    API -- "eventos de domínio (outbox) → push" --> BFF
 ```
 
 Conforme o [doc 08](../docs/08-arquitetura.md), **o domínio não conhece plataformas**: não valida token do Firebase, não envia push e não conhece telas. Ele confia no usuário informado pelo BFF:
@@ -58,22 +59,19 @@ Conforme o [doc 08](../docs/08-arquitetura.md), **o domínio não conhece plataf
 
 Arquitetura em camadas (inspirada em Clean Architecture). Cada camada só conhece as camadas internas e se comunica com elas por **interfaces** resolvidas por **injeção de dependência**.
 
+```mermaid
+flowchart TB
+    API["<b>Colecity.Api</b><br/>Controllers REST · autenticação do BFF · idempotência<br/>rate limit · ProblemDetails · OpenAPI"]
+    APPL["<b>Colecity.Application</b><br/>Casos de uso (serviços) · DTOs do contrato<br/>contratos de leitura · tarefas agendadas"]
+    DOM["<b>Colecity.Domain</b><br/>Entidades ricas · política por categoria<br/>geografia · eventos de domínio · repositórios"]
+    INF["<b>Colecity.Infrastructure</b><br/>EF Core + SQLite · migrations · consultas LINQ<br/>GTFS · Olho Vivo · Nominatim · outbox → BFF"]
+    API --> APPL --> DOM
+    INF --> APPL
+    INF --> DOM
+    API -- "registra na injeção de dependência" --> INF
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│ Colecity.Api            Controllers REST · autenticação BFF · filtro de     │
-│                         idempotência · rate limit · ProblemDetails · OpenAPI│
-├──────────────────────────────────────────────────────────────────────────┤
-│ Colecity.Application    Casos de uso (serviços) · DTOs do contrato ·        │
-│                         contratos de leitura · tarefas agendadas           │
-├──────────────────────────────────────────────────────────────────────────┤
-│ Colecity.Domain         Entidades ricas · política por categoria ·          │
-│                         geografia · eventos de domínio · repositórios      │
-├──────────────────────────────────────────────────────────────────────────┤
-│ Colecity.Infrastructure EF Core + SQLite · migrations · consultas LINQ ·    │
-│                         GTFS · Olho Vivo · Nominatim · outbox → BFF        │
-└──────────────────────────────────────────────────────────────────────────┘
-        tests/Colecity.Tests: 109 testes (domínio, aplicação + banco real, HTTP)
-```
+
+`tests/Colecity.Tests`: 109 testes (domínio, aplicação com banco real, HTTP).
 
 Decisões que vale destacar:
 
@@ -351,11 +349,11 @@ Base: `/api/v1`. Legenda: 🔒 exige `X-User-Id` · ⟳ exige `Idempotency-Key`.
 | `POST /ocorrencias` 🔒 ⟳ | Registra a ocorrência |
 | `PATCH /ocorrencias/{id}` 🔒 | Edita descrição e fotos (autor) |
 | `POST /ocorrencias/{id}/conclusao` 🔒 | Conclui (autor) |
-| `POST /ocorrencias/{id}/reabertura` 🔒 | Reabre (afetado, até 7 dias) |
+| `POST /ocorrencias/{id}/reabertura` 🔒 | Reabre (afetado, até 7 dias); quem reabre vira o autor |
 | `PUT` / `DELETE /ocorrencias/{id}/participacoes/{afetado\|apoio}` 🔒 | Marca ou retira a participação |
 | `GET /ocorrencias/{id}/comentarios` | Comentários |
 | `POST /ocorrencias/{id}/comentarios` 🔒 ⟳ | Comenta |
-| `DELETE /comentarios/{id}` 🔒 | Exclui o próprio comentário |
+| `DELETE /comentarios/{id}` 🔒 | Exclui o próprio comentário (não em ocorrência concluída) |
 | `POST /denuncias` 🔒 | Denuncia uma ocorrência, comentário ou foto |
 | `GET /admin/denuncias` · `POST /admin/denuncias/{conteudoId}/decisao` | Moderação (`X-Admin-Key`) |
 | `GET /mapa/calor` · `GET /mapa/zonas-atencao` | Mapa de calor e Zonas de atenção |

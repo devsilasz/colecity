@@ -58,12 +58,14 @@ _Link do vídeo: a preencher._
 
 ## Arquitetura
 
-```
-App (Expo) --Bearer <ID token Firebase>--> BFF (Vercel) --X-Service-Key + X-User-Id--> API C# (Render)
-    |                                         |                                            |
-    +--> Firebase Auth (login)                +--> Vercel Blob (fotos)                     |
-    +--> Firestore users/{uid}                ^                                            |
-         (preferências, aparelhos)            +--------- eventos de domínio (push) --------+
+```mermaid
+flowchart LR
+    APP["App (Expo)"] -- "Bearer ID token (interceptor do Axios)" --> BFF["BFF (Vercel)"]
+    BFF -- "X-Service-Key + X-User-Id" --> API["API de domínio C# (Render)"]
+    API -- "eventos de domínio → push" --> BFF
+    APP -- "login" --> AUTH["Firebase Auth"]
+    APP -- "users/{uid}<br/>preferências e aparelhos" --> FS[("Firestore")]
+    BFF -- "fotos" --> BLOB[("Vercel Blob")]
 ```
 
 - O app faz login no **Firebase Authentication** e chama **só o BFF**, levando o ID token no header `Authorization` (interceptor do Axios). Nunca fala direto com a API de domínio.
@@ -248,7 +250,7 @@ mobile/
     (auth)/               login, cadastro, recuperar senha, termos
     (tabs)/               explorar, registrar, transporte, minhas, perfil
   src/
-    components/           ui, feedback, ocorrencia, mapa, registro, transporte, perfil, auth
+    components/           ui, feedback, navigation, ocorrencia, mapa, registro, transporte, perfil, auth
     config/               ambiente, categorias, formulários (JSON), termos
     context/              Auth, Theme, Toast, Registro, Viagem
     hooks/                useAuth, useOcorrencias, useParticipacao, useComentarios, useViagem...
@@ -260,7 +262,12 @@ mobile/
       firestore/          Firebase Auth e dados do usuário (users/{uid})
       mock/               adaptadores com dados de demonstração
       api.ts              instância Axios + interceptors
-      notificacoes.ts     registro do aparelho para push
+      erros.ts            códigos de erro do contrato → mensagens amigáveis
+      imagem.ts           compressão das fotos (WebP, maior lado ≤ 1920 px)
+      geocodificacao.ts   endereço aproximado para a prévia do título (RN-REG-07)
+      googleNativo.ts     login com Google nativo (só no APK)
+      userDataService.ts  dados do usuário no modo mock (AsyncStorage)
+      notificacoes.ts     registro do aparelho para push (carregado sob demanda; desligado no Expo Go)
       offlineQueue.ts     fila "Aguardando envio"
       queryClient.ts      TanStack Query com cache persistido
     mocks/                dados semente do mock

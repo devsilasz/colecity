@@ -16,10 +16,10 @@ App da jornada do cidadão. Regras em [07](07-regras-de-negocio-produto.md); arq
 | Armazenamento local | **AsyncStorage** (tema, filtros, rascunho, cache do TanStack Query, fila offline) |
 | Autenticação | **Firebase Authentication** — e-mail/senha e Google (`@react-native-google-signin/google-signin`) |
 | Banco do app | **Cloud Firestore** (dados do próprio usuário, ver doc 08 §8) |
-| Fotos | `expo-image-picker` + `expo-image-manipulator` (WebP, maior lado ≤ 1920 px, qualidade 0,7) + **Firebase Storage** |
+| Fotos | `expo-image-picker` + `expo-image-manipulator` (WebP, maior lado ≤ 1920 px, qualidade 0,7), enviadas ao BFF (`POST /fotos`, Vercel Blob) com `expo-file-system` + `expo/fetch` |
 | Localização | `expo-location` |
 | Mapa | `react-native-maps` (marcadores, mapa de calor, trajeto da linha) |
-| Push | `expo-notifications` + **FCM** (Android) |
+| Push | `expo-notifications` + Expo Push Service (entrega via FCM, só Android) |
 | Conectividade | `@react-native-community/netinfo` (offline/online) |
 | Data e hora | `@react-native-community/datetimepicker` (campo `datetime` do formulário dinâmico, só em Segurança) |
 
@@ -49,12 +49,12 @@ App da jornada do cidadão. Regras em [07](07-regras-de-negocio-produto.md); arq
 - **Linhas cobertas (decisão de 18/11/2026):** em produção, a API de domínio usa o GTFS real da SPTrans (todas as linhas de ônibus, trajetos oficiais simplificados a 10 m) e os ônibus da Olho Vivo. A aba Transporte sugere 4 linhas como atalho; no mock, lista as linhas fictícias e avisa que só elas existem.
 - **Viagem ativa:** fica no `ViagemContext`, no layout raiz, e continua valendo em qualquer tela enquanto o app está aberto (sem segundo plano, RN-TAV-08). Um cartão na aba Transporte lembra que a localização está sendo compartilhada e permite encerrar. Termina quando o usuário encerra, sai da conta, passam 2 horas ou o servidor responde `ativa: false`.
 - **Desvio de rota:** a pergunta "O ônibus mudou de rota?" aparece em qualquer tela; ao confirmar, o app abre a ocorrência criada ou reforçada.
-- **Intervalo de envio da posição:** 1 minuto (RN-TAV-04). Enquanto o transporte é simulado no app (fontes `firestore` e `mock`), cai para 10 segundos, só para o fluxo de desvio caber em uma demonstração; a simulação também troca a posição quando o aparelho está a mais de 2 km da linha.
+- **Intervalo de envio da posição:** 1 minuto (RN-TAV-04). Com a fonte `mock`, em que o transporte é simulado no app, cai para 10 segundos, só para o fluxo de desvio caber em uma demonstração; a simulação também troca a posição quando o aparelho está a mais de 2 km da linha.
 - **Sair da conta:** pede confirmação e descarta as ações "Aguardando envio" daquele usuário no aparelho.
-- **Com a fonte `mock`**, a tela de login mostra a conta de demonstração e "Entrar com Google" usa uma conta simulada. Com `firestore`, o botão do Google avisa que o recurso depende do APK.
+- **Com a fonte `mock`**, a tela de login mostra a conta de demonstração e "Entrar com Google" usa uma conta simulada. Com `bff` no Expo Go, o botão do Google avisa que o recurso depende do APK.
 - **Fonte de dados (`EXPO_PUBLIC_DATA_SOURCE`):** `bff` (padrão) usa o Firebase Authentication para o login e o BFF (`EXPO_PUBLIC_BFF_URL`, adaptadores Axios em `src/services/http/`) para todo o domínio; o Firestore guarda só `users/{uid}` (`src/services/firestore/userData.firestore.ts`). `mock` usa dados no aparelho. Até 18/11/2026 havia também a fonte `firestore`, com o domínio inteiro no Firestore; ela foi removida na integração com o BFF (doc 06, decisões 30 a 32).
 - **Troca de e-mail com Firebase:** a troca só vale depois que a pessoa confirma pelo link enviado ao novo endereço; o app avisa "enviamos um link de confirmação".
-- **Tempo real:** o detalhe da ocorrência e os comentários usam listeners do Firestore, removidos ao fechar a tela.
+- **Tempo real:** o detalhe da ocorrência e os comentários são consultados de novo a cada 20 s enquanto a tela está aberta e o app em primeiro plano (`tempoReal.http.ts`). Essas atualizações acontecem em segundo plano; o indicador de "puxar para atualizar" só aparece quando a pessoa puxa a tela (`usePuxarParaAtualizar`).
 - **Foto que não carrega** mostra a imagem padrão "Foto indisponível".
 - Tema **light e dark** em todas as telas, preferência salva no AsyncStorage.
 - Acessibilidade conforme RN-GER-01 a RN-GER-05 (`accessibilityLabel`, `accessibilityRole`, áreas de toque ≥ 44 pt, fonte do sistema, contraste AA).
@@ -101,33 +101,39 @@ src/
   context/
     AuthContext.tsx
     ThemeContext.tsx
+    ToastContext.tsx
     RegistroContext.tsx       # rascunho dos três passos do registro
     ViagemContext.tsx         # viagem "Estou neste ônibus" e envio periódico da posição
   hooks/
-    useAuth.ts  useOcorrencias.ts  useOcorrencia.ts  useParticipacao.ts
-    useComentarios.ts  useLocalizacao.ts  useViagem.ts  useNotificacoes.ts
-    useConectividade.ts  useFilaOffline.ts  useSincronizarFila.ts  useNotificacoesAtivas.ts
-    useFiltrosExplorar.ts  useMapa.ts  useEstadoOcorrenciaUsuario.ts  useMinhasOcorrencias.ts
+    useAuth.ts  useOcorrencias.ts  useOcorrencia.ts  useParticipacao.ts  useComentarios.ts
+    useLocalizacao.ts  useViagem.ts  useMapa.ts  useFiltrosExplorar.ts  useMinhasOcorrencias.ts
+    useConectividade.ts  useFilaOffline.ts  useSincronizarFila.ts  useTempoReal.ts
+    useNotificacoesPush.ts  useNotificacoesAtivas.ts  useEstadoOcorrenciaUsuario.ts
+    usePuxarParaAtualizar.ts  useRedesenhoMarcadores.ts  useCabecalhoRolavel.ts  useSairDoLogin.ts
   services/
+    index.ts                  # único ponto que escolhe a fonte de dados (bff ou mock)
+    contratos.ts              # interfaces dos services, iguais para todas as fontes
     firebase.ts               # inicialização (lê firebaseConfig.json)
     api.ts                    # instância Axios + interceptors
-    authService.ts
-    ocorrenciaService.ts
-    participacaoService.ts
-    comentarioService.ts
-    transporteService.ts
-    uploadService.ts          # compressão WebP + upload Storage
-    notificationService.ts    # permissão, token, toque na notificação
-    userDataService.ts        # Firestore do usuário
-    offlineQueue.ts
-    storage.ts                # AsyncStorage
+    http/                     # adaptadores do BFF: rotas, ocorrências, recursos, fotos, tempo real
+    firestore/                # auth.firebase.ts (Firebase Auth) e userData.firestore.ts (users/{uid})
+    mock/                     # adaptadores com dados de demonstração
+    erros.ts                  # códigos do contrato → mensagens amigáveis
+    imagem.ts                 # compressão WebP
+    geocodificacao.ts         # endereço aproximado para a prévia do título
+    googleNativo.ts           # login com Google nativo (só no APK)
+    notificacoes.ts           # permissão, token, toque na notificação
+    userDataService.ts        # dados do usuário no modo mock (AsyncStorage)
+    offlineQueue.ts           # fila "Aguardando envio"
+    queryClient.ts            # TanStack Query com cache persistido
+    storage.ts                # chaves do AsyncStorage
+  mocks/                      # dados semente do mock
   types/
-    ocorrencia.ts  categoria.ts  usuario.ts  comentario.ts  transporte.ts
-    formulario.ts  navigation.ts  api.ts
+    api.ts  categoria.ts  comentario.ts  estado.ts  formulario.ts  ocorrencia.ts  transporte.ts  usuario.ts
   theme/
-    colors.ts
+    colors.ts  tokens.ts  categorias.ts  index.ts
   utils/
-    formatarData.ts  distancia.ts  validacoes.ts
+    formatarData.ts  distancia.ts  validacoes.ts  registro.ts  regrasOcorrencia.ts  haptics.ts
 firestore.rules
 firebaseConfig.json           # configuração pública do SDK cliente (versionada)
 .env.example
@@ -188,7 +194,7 @@ Após registrar: online, abre o detalhe da ocorrência criada; offline, o regist
 - Leituras: TanStack Query com persister no AsyncStorage; sem conexão, exibe o cache com `OfflineBanner` "Você está offline".
 - Escritas (registrar, participar, comentar): sem conexão, a ação vai para `offlineQueue` no AsyncStorage com status "Aguardando envio" e um id local único.
 - Ao voltar a conexão (NetInfo), a fila é enviada em ordem. Cada ação leva um `Idempotency-Key` (o id local) para evitar duplicidade se o envio for repetido.
-- Fotos de registros offline são comprimidas na hora e enviadas ao Storage junto com a fila.
+- Fotos de registros offline são comprimidas na hora e enviadas ao BFF (`POST /fotos`) quando a fila é processada.
 
 ### 4.4 Push (Android)
 - Permissão pedida após o primeiro registro ou participação (RN-NOT-01).
@@ -220,7 +226,7 @@ Após registrar: online, abre o detalhe da ocorrência criada; offline, o regist
 | TypeScript sem `any` | Todo o projeto |
 | Componentização e ESModules | `src/components`, `src/services`, `src/hooks` |
 | Navegação por abas e stack | Expo Router: abas Explorar, Registrar, Transporte, Minhas, Perfil, com stack de detalhe |
-| Context API | Autenticação e tema |
+| Context API | Autenticação, tema, avisos (toast), rascunho do registro e viagem ativa |
 | Hooks customizados, `useMemo`, `useCallback` | `useOcorrencias`, `useParticipacao`, `useViagem`, filtros e mapa |
 | AsyncStorage | Tema, filtros, rascunho, cache e fila offline |
 | Consumo de API com Axios, service layer e interceptors | Comunicação com o BFF, token automático, tratamento de 401/429 |
@@ -228,9 +234,9 @@ Após registrar: online, abre o detalhe da ocorrência criada; offline, o regist
 | Loading, erro, retry e empty state | Todas as telas |
 | Formulário dinâmico a partir de JSON | Registro de ocorrência por categoria |
 | Firebase Authentication | Login e-mail/senha e Google, sessão persistente |
-| Cloud Firestore com regras de segurança | Dispositivos, preferências e estado por ocorrência |
-| Upload de imagens com permissões | Fotos de ocorrências e comentários (Storage) |
-| Push com FCM via API própria | BFF calcula destinatários e envia; deep link para a ocorrência |
+| Cloud Firestore com regras de segurança | `users/{uid}`: aceite, preferências, estado por ocorrência e aparelhos (`firestore.rules`) |
+| Upload de imagens com permissões | Fotos de ocorrências e comentários, enviadas ao BFF com o ID token (Vercel Blob) |
+| Push com FCM via API própria | O domínio calcula os destinatários, o BFF filtra preferências e envia pelo Expo Push; o toque abre a ocorrência |
 | Tema light/dark | Perfil |
 
 ## Nota — build, Maps e push (17/11/2026)
@@ -257,7 +263,9 @@ O primeiro APK fechava antes da primeira tela: o R8, ligado por padrão no build
 
 No primeiro APK, pedir o Expo push token fazia o Android emitir o evento de token novo, e o listener do app pedia o token de novo: cerca de 13 consultas por segundo, cada uma regravando `users/{uid}/devices`. Correção em `src/services/notificacoes.ts`: o listener só reage a um token diferente do último visto, e o aparelho só é regravado quando a conta ou o token mudam.
 
-## Nota — conclusão com erro e outro aparelho desatualizado (17/11/2026)
+## Nota — conclusão com erro e outro aparelho desatualizado (17/11/2026, histórico)
+
+Vale para a fonte `firestore`, removida em 18/11/2026. Hoje a conclusão passa pelo domínio, e as telas são atualizadas por consulta a cada 20 s.
 
 - **Sintoma:** ao concluir, quem concluiu via um erro, mas a ocorrência ficava concluída; no outro aparelho continuava aberta.
 - **Causa 1:** o `concluir` (e o `reabrir`) gravava e só depois fazia leituras extras para montar o detalhe; com a conexão instável essas leituras falhavam e o erro aparecia para uma ação já gravada. Agora o detalhe é montado antes de gravar.

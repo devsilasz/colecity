@@ -28,7 +28,7 @@ Esta pasta contém a **API de domínio** do Colecity: a Web API REST que é **do
 | **Cidadão beneficiado** | Moradores e usuários de serviços urbanos da cidade, como transporte, água, energia, vias, árvores, segurança e áreas de risco |
 | **Problema, em uma frase** | Reclamações urbanas feitas de forma individual ficam isoladas: o cidadão não se sente ouvido e o poder público não enxerga a dimensão real do problema |
 | **Como funciona** | O cidadão consulta, registra e acompanha ocorrências por categoria e localização. Outras pessoas marcam "Também estou sendo afetado" ou "Apoiar manifestação", comentam e acompanham a linha do tempo. O transporte ao vivo cruza os dados da SPTrans com a posição de passageiros para detectar desvios de rota |
-| **O que esta parte faz** | API de domínio em C#: regras de negócio, persistência, integrações (SPTrans, geocodificação), tarefas automáticas e eventos para o BFF. O app Expo fala com o BFF (Node + TypeScript na Vercel), e o BFF fala com esta API |
+| **O que esta parte faz** | API de domínio em C#: regras de negócio, persistência, integrações (SPTrans, geocodificação), tarefas automáticas e eventos para o BFF. O app Expo fala com o BFF (Firebase Cloud Functions), e o BFF fala com esta API |
 | **Indicadores de impacto** | Ocorrências registradas · afetados e apoios por ocorrência · ocorrências concluídas · desvios de rota detectados |
 | **ODS** | **11** (cidades e comunidades sustentáveis) · **10** (redução das desigualdades) · **9** (indústria, inovação e infraestrutura) |
 
@@ -38,11 +38,10 @@ Esta pasta contém a **API de domínio** do Colecity: a Web API REST que é **do
 
 ## Onde esta API entra na arquitetura
 
-```mermaid
-flowchart LR
-    APP["App Expo"] -- "HTTPS + ID token do Firebase" --> BFF["BFF (Vercel)"]
-    BFF -- "HTTPS + X-Service-Key + X-User-Id" --> API["API de domínio<br/>(este projeto, Render)"]
-    API -- "eventos de domínio (outbox) → push" --> BFF
+```
+App Expo ──HTTPS + token Firebase──► BFF (Cloud Functions) ──HTTPS + X-Service-Key──► API de domínio (este projeto)
+                                          ▲                                                 │
+                                          └──────────── eventos de domínio (push) ──────────┘
 ```
 
 Conforme o [doc 08](../docs/08-arquitetura.md), **o domínio não conhece plataformas**: não valida token do Firebase, não envia push e não conhece telas. Ele confia no usuário informado pelo BFF:
@@ -59,19 +58,22 @@ Conforme o [doc 08](../docs/08-arquitetura.md), **o domínio não conhece plataf
 
 Arquitetura em camadas (inspirada em Clean Architecture). Cada camada só conhece as camadas internas e se comunica com elas por **interfaces** resolvidas por **injeção de dependência**.
 
-```mermaid
-flowchart TB
-    API["<b>Colecity.Api</b><br/>Controllers REST · autenticação do BFF · idempotência<br/>rate limit · ProblemDetails · OpenAPI"]
-    APPL["<b>Colecity.Application</b><br/>Casos de uso (serviços) · DTOs do contrato<br/>contratos de leitura · tarefas agendadas"]
-    DOM["<b>Colecity.Domain</b><br/>Entidades ricas · política por categoria<br/>geografia · eventos de domínio · repositórios"]
-    INF["<b>Colecity.Infrastructure</b><br/>EF Core + SQLite · migrations · consultas LINQ<br/>GTFS · Olho Vivo · Nominatim · outbox → BFF"]
-    API --> APPL --> DOM
-    INF --> APPL
-    INF --> DOM
-    API -- "registra na injeção de dependência" --> INF
 ```
-
-`tests/Colecity.Tests`: 109 testes (domínio, aplicação com banco real, HTTP).
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Colecity.Api            Controllers REST · autenticação BFF · filtro de     │
+│                         idempotência · rate limit · ProblemDetails · OpenAPI│
+├──────────────────────────────────────────────────────────────────────────┤
+│ Colecity.Application    Casos de uso (serviços) · DTOs do contrato ·        │
+│                         contratos de leitura · tarefas agendadas           │
+├──────────────────────────────────────────────────────────────────────────┤
+│ Colecity.Domain         Entidades ricas · política por categoria ·          │
+│                         geografia · eventos de domínio · repositórios      │
+├──────────────────────────────────────────────────────────────────────────┤
+│ Colecity.Infrastructure EF Core + SQLite · migrations · consultas LINQ ·    │
+│                         GTFS · Olho Vivo · Nominatim · outbox → BFF        │
+└──────────────────────────────────────────────────────────────────────────┘
+        tests/Colecity.Tests: 109 testes (domínio, aplicação + banco real, HTTP)
+```
 
 Decisões que vale destacar:
 
@@ -92,12 +94,12 @@ classDiagram
         +EstadoOcorrencia Estado
         +int TotalAfetados
         +int TotalApoios
-        #bool TemCicloDeAcompanhamento
-        #TimeSpan PrazoInatividade
-        +bool PermiteReabertura
-        +bool ExibeApoiadores
-        +bool SugereSemelhantes
-        +bool ContaParaZonaDeAtencao
+        #TemCicloDeAcompanhamento*
+        #PrazoInatividade*
+        +PermiteReabertura*
+        +ExibeApoiadores*
+        +SugereSemelhantes*
+        +ContaParaZonaDeAtencao*
         +MarcarParticipacao(usuario, tipo, agora)
         +RetirarParticipacao(usuario, tipo, agora)
         +Concluir(usuario, feedback, fotos, agora)
@@ -105,24 +107,12 @@ classDiagram
         +EncerrarSeVencida(agora)
         +Comentar(usuario, texto, fotos, agora)
     }
-    class OcorrenciaTransporte {
-        +string LinhaCodigo
-        +RegistrarDesvio()
-    }
-    class OcorrenciaSeguranca {
-        +DateTime DataHoraOcorrido
-    }
+    class OcorrenciaTransporte { +LinhaCodigo +RegistrarDesvio() }
+    class OcorrenciaSeguranca { +DataHoraOcorrido }
     class OcorrenciaServicoEssencial
     class OcorrenciaGeral
-    class Coordenada {
-        <<value object>>
-        +DistanciaMetros()
-        +Aproximada()
-    }
-    class Viagem {
-        +RegistrarPosicao()
-        +ResponderDesvio()
-    }
+    class Coordenada { <<value object>> +DistanciaMetros() +Aproximada() }
+    class Viagem { +RegistrarPosicao() +ResponderDesvio() }
     Ocorrencia <|-- OcorrenciaTransporte
     Ocorrencia <|-- OcorrenciaSeguranca
     Ocorrencia <|-- OcorrenciaServicoEssencial
@@ -135,9 +125,6 @@ classDiagram
     Viagem "1" *-- "N" PosicaoViagem
     Usuario "1" -- "N" Ocorrencia : autor
     Denuncia ..> IConteudoModeravel
-    class IConteudoModeravel {
-        <<interface>>
-    }
     IConteudoModeravel <|.. Ocorrencia
     IConteudoModeravel <|.. Comentario
     IConteudoModeravel <|.. Foto
@@ -227,7 +214,7 @@ Para rodar a jornada completa pelo terminal, com a API no ar: `./scripts/demo-ap
 | `SpTrans:Token` | vazio = SPTrans simulada | Token da API Olho Vivo |
 | `Gtfs:Diretorio` | vazio = amostra embutida | Pasta com o GTFS completo da SPTrans |
 | `Geocodificacao:Provedor` | `Nominatim` | `Nominatim` (OpenStreetMap) ou `Simulado` (offline) |
-| `Bff:EventosUrl` | vazio = eventos só em log | URL do `POST /eventos-dominio` do BFF |
+| `Bff:EventosUrl` | vazio = eventos só em log | URL da função `eventosDominio` do BFF |
 | `RateLimit:RequisicoesPorMinuto` | `30` | RN-GER-12 |
 | `Banco:PopularDadosDemo` | `true` | Dados fictícios na primeira execução |
 | `Tarefas:Habilitadas` | `true` | Tarefas em segundo plano |
@@ -251,39 +238,9 @@ Para recriar o banco do zero, apague `src/Colecity.Api/colecity.db` e rode a API
 dotnet test
 ```
 
-Sem o .NET instalado, dá para rodar tudo pelo Docker:
+### Publicação no Render
 
-```bash
-# testes
-docker run --rm -v "$PWD:/src" -w /src mcr.microsoft.com/dotnet/sdk:10.0 dotnet test
-# API (imagem de produção) em http://localhost:8080/swagger
-docker build -t colecity-api . && docker run --rm -p 8080:8080 -e Seguranca__ServiceKey=dev colecity-api
-```
-
-### Publicação no Render (gratuito, via Docker)
-
-A API é publicada como **Web Service** gratuito do [Render](https://render.com) a partir do `Dockerfile` desta pasta. O plano gratuito não pede cartão.
-
-1. Em **New → Web Service**, conecte o repositório do GitHub.
-2. Configure: **Language** `Docker`, **Root Directory** `backend`, **Instance Type** `Free`, **Health Check Path** `/health`.
-3. Em **Environment**, cadastre as variáveis:
-
-   | Variável | Valor |
-   |---|---|
-   | `Seguranca__ServiceKey` | segredo longo e aleatório; o **mesmo** valor vai em `DOMINIO_SERVICE_KEY` no BFF |
-   | `Bff__EventosUrl` | `https://<bff>.vercel.app/eventos-dominio` (preencha depois de publicar o BFF) |
-   | `Bff__ServiceKey` | opcional; vazio = usa `Seguranca__ServiceKey` |
-   | `SpTrans__Token` | opcional; vazio = SPTrans simulada |
-   | `Seguranca__AdminKey` | opcional; liga as rotas de moderação |
-   | `RateLimit__RequisicoesPorMinuto` | `120`. As consultas anônimas chegam todas pelo IP do BFF e dividem a mesma cota; os usuários logados são limitados por uid |
-
-4. Clique em **Create Web Service**. O Render compila a imagem e publica em `https://<servico>.onrender.com`. O Swagger fica em `/swagger`.
-
-**Como funciona no plano gratuito:**
-
-- **O banco não é persistente.** O SQLite fica no disco do container, que é apagado a cada reinício ou deploy. Na inicialização, a API reaplica as migrations e o seed de demonstração, então os dados **voltam ao estado inicial**, e eventos pendentes no outbox se perdem. As regras guardam todo o histórico para auditoria (ocorrências nunca são apagadas, RN-ACO-08).
-- **GTFS real:** a imagem Docker usa o GTFS completo da SPTrans em `gtfs-sptrans/` (todas as linhas de ônibus, trajetos simplificados; ver o LEIAME da pasta), via `Gtfs__Diretorio=/app/gtfs`. A importação é feita **no build da imagem** (`dotnet Colecity.Api.dll --preparar-banco`), e o banco já vai pronto: ao subir, a API só aplica o seed (cerca de 36 s e 73 MB no limite do Render). Na imagem, a reimportação diária fica desligada (`Gtfs__ReimportarDiariamente=false`), porque os arquivos só mudam com um novo deploy.
-- **O serviço dorme** após cerca de 15 minutos sem requisições. A primeira chamada depois disso leva até um minuto. Antes de uma demonstração, abra `/health` para acordá-lo.
+A API está publicada como Web Service gratuito do [Render](https://render.com), a partir do `Dockerfile` desta pasta (**Root Directory** `backend`, **Health Check Path** `/health`). Variáveis: `Seguranca__ServiceKey` (o mesmo valor de `DOMINIO_SERVICE_KEY` no BFF), `Bff__EventosUrl` (`https://<bff>/eventos-dominio`), `SpTrans__Token`, `Seguranca__AdminKey` e `RateLimit__RequisicoesPorMinuto=120`. A imagem usa o GTFS real da SPTrans (`gtfs-sptrans/`), importado no build. No plano gratuito, o banco volta aos dados de demonstração a cada deploy e o serviço dorme sem uso.
 
 ---
 
@@ -340,7 +297,7 @@ O título "Tipo – Rua, Bairro" (RN-REG-07) usa o **Nominatim**, que é gratuit
 
 ### Eventos para o BFF
 
-A cada 10 s, a tarefa `PublicadorEventosTarefa` lê o outbox e envia `ocorrencia.estado_alterado`, `ocorrencia.comentario_criado` e `transporte.desvio_confirmado` para `Bff:EventosUrl` (`POST /eventos-dominio` do BFF) com `X-Service-Key`, `eventId` único e `destinatariosUids` calculados pelo domínio: autor, afetados e apoiadores, sem quem causou o evento. Enquanto o BFF não estiver publicado, os eventos ficam registrados no log, sem uid nem e-mail (LGPD).
+`ocorrencia.estado_alterado`, `ocorrencia.comentario_criado` e `transporte.desvio_confirmado` são enviados para `Bff:EventosUrl` com `X-Service-Key`, `eventId` único e `destinatariosUids` calculados pelo domínio: autor, afetados e apoiadores, sem quem causou o evento. Enquanto o BFF não estiver publicado, os eventos ficam registrados no log, sem uid nem e-mail (LGPD).
 
 ---
 
@@ -364,11 +321,11 @@ Base: `/api/v1`. Legenda: 🔒 exige `X-User-Id` · ⟳ exige `Idempotency-Key`.
 | `POST /ocorrencias` 🔒 ⟳ | Registra a ocorrência |
 | `PATCH /ocorrencias/{id}` 🔒 | Edita descrição e fotos (autor) |
 | `POST /ocorrencias/{id}/conclusao` 🔒 | Conclui (autor) |
-| `POST /ocorrencias/{id}/reabertura` 🔒 | Reabre (afetado, até 7 dias); quem reabre vira o autor |
+| `POST /ocorrencias/{id}/reabertura` 🔒 | Reabre (afetado, até 7 dias) |
 | `PUT` / `DELETE /ocorrencias/{id}/participacoes/{afetado\|apoio}` 🔒 | Marca ou retira a participação |
 | `GET /ocorrencias/{id}/comentarios` | Comentários |
 | `POST /ocorrencias/{id}/comentarios` 🔒 ⟳ | Comenta |
-| `DELETE /comentarios/{id}` 🔒 | Exclui o próprio comentário (não em ocorrência concluída) |
+| `DELETE /comentarios/{id}` 🔒 | Exclui o próprio comentário |
 | `POST /denuncias` 🔒 | Denuncia uma ocorrência, comentário ou foto |
 | `GET /admin/denuncias` · `POST /admin/denuncias/{conteudoId}/decisao` | Moderação (`X-Admin-Key`) |
 | `GET /mapa/calor` · `GET /mapa/zonas-atencao` | Mapa de calor e Zonas de atenção |

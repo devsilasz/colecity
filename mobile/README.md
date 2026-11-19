@@ -31,9 +31,8 @@ Visão geral e entregas por disciplina no [README da raiz](../README.md).
 
 ## Vídeo
 
-<!-- Preencher com o link do vídeo de até 3 minutos. -->
-
-_Link do vídeo: a preencher._
+- **Vídeo de entrega (até 3 min):** https://youtu.be/xssyI-scp5E
+- **Gravação completa, sem cortes:** https://youtu.be/1o-T05mNc84
 
 ## Ficha da CitizenTech
 
@@ -227,9 +226,9 @@ Funcionam só no **APK / development build** e só no Android.
 
 ### Evidência de notificação recebida
 
-<!-- OBRIGATÓRIO: print da notificação chegando no Android. Salvar em docs/prints/notificacao.png. -->
+Notificação "Novo comentário" chegando no Android quando outra conta comenta na ocorrência. O push chegando de verdade aparece nos vídeos: em [2:05 do vídeo de entrega](https://youtu.be/xssyI-scp5E?t=125) e em [7:26 da gravação completa](https://youtu.be/1o-T05mNc84?t=446).
 
-_Adicionar o print em `docs/prints/notificacao.png`._
+<img src="prints/16-notificacao-push.png" width="260" alt="Notificação push recebida no Android">
 
 ## Gerar o APK
 
@@ -299,6 +298,14 @@ mobile/
 
 ## Prints
 
-<!-- Adicionar as imagens em mobile/docs/prints/ e referenciar aqui. -->
-
-_Adicionar em `docs/prints/`: Explorar (lista e mapa), detalhe da ocorrência, Registrar, Minhas, Transporte ao vivo e Perfil (tema claro e escuro)._
+| Explorar | Mapa | Mapa com filtro | Zonas de atenção |
+| --- | --- | --- | --- |
+| <img src="prints/01-explorar.png" width="180" alt="Explorar"> | <img src="prints/02-mapa.png" width="180" alt="Mapa"> | <img src="prints/03-mapa-filtros.png" width="180" alt="Mapa com filtro"> | <img src="prints/04-zonas-de-atencao.png" width="180" alt="Zonas de atenção"> |
+| Registrar sem login | Criar conta com Google | Sobre | Registrar: categoria |
+| <img src="prints/05-registrar-sem-login.png" width="180" alt="Registrar sem login"> | <img src="prints/06-criar-conta-google.png" width="180" alt="Criar conta com Google"> | <img src="prints/07-sobre.png" width="180" alt="Sobre"> | <img src="prints/08-registrar-categoria.png" width="180" alt="Registrar: categoria"> |
+| Registrar: local | Registrar: descrição | Registrar: fotos | Ocorrência registrada |
+| <img src="prints/09-registrar-local.png" width="180" alt="Registrar: local"> | <img src="prints/10-registrar-descricao.png" width="180" alt="Registrar: descrição"> | <img src="prints/11-registrar-fotos.png" width="180" alt="Registrar: fotos"> | <img src="prints/12-ocorrencia-registrada.png" width="180" alt="Ocorrência registrada"> |
+| Comentários | Transporte: linha | Transporte: compartilhar viagem | Notificação push |
+| <img src="prints/13-comentarios.png" width="180" alt="Comentários"> | <img src="prints/14-transporte-linha.png" width="180" alt="Transporte: linha"> | <img src="prints/15-transporte-compartilhar-viagem.png" width="180" alt="Transporte: compartilhar viagem"> | <img src="prints/16-notificacao-push.png" width="180" alt="Notificação push"> |
+| Comentário de outro usuário | Concluir ocorrência | Ocorrência concluída | Mais ações |
+| <img src="prints/17-comentario-outro-usuario.png" width="180" alt="Comentário de outro usuário"> | <img src="prints/18-concluir-ocorrencia.png" width="180" alt="Concluir ocorrência"> | <img src="prints/19-ocorrencia-concluida.png" width="180" alt="Ocorrência concluída"> | <img src="prints/20-mais-acoes.png" width="180" alt="Mais ações"> |

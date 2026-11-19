@@ -12,6 +12,12 @@ public class GtfsOptions
 
     /// <summary>Pasta com routes.txt, trips.txt e shapes.txt. Vazio = amostra embutida no projeto.</summary>
     public string? Diretorio { get; set; }
+
+    /// <summary>
+    /// Reimporta uma vez por dia. Desligado na imagem Docker: lá os arquivos só mudam com um novo
+    /// deploy, que já traz o banco importado.
+    /// </summary>
+    public bool ReimportarDiariamente { get; set; } = true;
 }
 
 /// <summary>Importa o GTFS para as tabelas do domínio (doc 10, seção 6), em uma única transação.</summary>
@@ -27,7 +33,8 @@ public class GtfsImportador(
     /// <summary>Na inicialização a importação já é feita por <see cref="ImportarSeVazioAsync"/>.</summary>
     public bool ExecutarAoIniciar => false;
 
-    public Task ExecutarAsync(CancellationToken ct) => ImportarAsync(ct);
+    public Task ExecutarAsync(CancellationToken ct) =>
+        opcoes.Value.ReimportarDiariamente ? ImportarAsync(ct) : Task.CompletedTask;
 
     public async Task ImportarSeVazioAsync(CancellationToken ct = default)
     {

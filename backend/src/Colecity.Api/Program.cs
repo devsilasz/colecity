@@ -30,6 +30,14 @@ builder.Services.AddOpenApi(o =>
 
 var app = builder.Build();
 
+// `--preparar-banco`: só cria o banco com as migrations e o GTFS e sai. Usado no build da imagem
+// Docker, para a API não reimportar o GTFS a cada inicialização no Render.
+if (args.Contains("--preparar-banco"))
+{
+    await app.Services.InicializarBancoAsync(popular: false);
+    return;
+}
+
 await app.Services.InicializarBancoAsync(popular: app.Configuration.GetValue("Banco:PopularDadosDemo", true));
 
 app.UseExceptionHandler();

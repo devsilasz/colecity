@@ -269,7 +269,7 @@ A API é publicada como **Web Service** gratuito do [Render](https://render.com)
 **Limitações do plano gratuito:**
 
 - **O banco não é persistente.** O SQLite fica no disco do container, que é apagado a cada reinício ou deploy. Na inicialização, a API reaplica as migrations e o seed de demonstração, então os dados **voltam ao estado inicial**, e eventos pendentes no outbox se perdem. As regras guardam todo o histórico para auditoria (ocorrências nunca são apagadas, RN-ACO-08); manter esse histórico exige banco persistente em produção.
-- **GTFS real:** a imagem Docker usa o GTFS completo da SPTrans em `gtfs-sptrans/` (todas as linhas de ônibus, trajetos simplificados; ver o LEIAME da pasta), via `Gtfs__Diretorio=/app/gtfs`. A importação roda antes de a API responder: depois de cada deploy, a API leva cerca de 2,5 minutos para ficar no ar.
+- **GTFS real:** a imagem Docker usa o GTFS completo da SPTrans em `gtfs-sptrans/` (todas as linhas de ônibus, trajetos simplificados; ver o LEIAME da pasta), via `Gtfs__Diretorio=/app/gtfs`. A importação é feita **no build da imagem** (`dotnet Colecity.Api.dll --preparar-banco`), e o banco já vai pronto: ao subir, a API só aplica o seed (cerca de 36 s e 73 MB no limite do Render). Na imagem, a reimportação diária fica desligada (`Gtfs__ReimportarDiariamente=false`), porque os arquivos só mudam com um novo deploy.
 - **O serviço dorme** após cerca de 15 minutos sem requisições. A primeira chamada depois disso leva até um minuto. Antes de uma demonstração, abra `/health` para acordá-lo.
 
 ---

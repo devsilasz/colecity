@@ -6,10 +6,9 @@ import { ErroHttp } from './http.js';
 import { textoDaNotificacao } from './textos.js';
 import { TIPOS_EVENTO, type DeviceDoc, type EventoDominio, type ResultadoEvento, type TipoEvento } from './tipos.js';
 
-/** RN-NOT-02: no máximo 1 push de comentário por ocorrência a cada 30 minutos, por destinatário. */
-const INTERVALO_COMENTARIOS_MS = 30 * 60 * 1000;
 /** Canal de notificação criado pelo app no Android. */
-const CANAL_ANDROID = 'ocorrencias';
+/** Mesmo canal criado pelo app (`notificacoes.ts`): alta prioridade, com som e vibração. */
+const CANAL_ANDROID = 'ocorrencias-alerta';
 const MAX_DESTINATARIOS = 500;
 
 /** Ids viram parte de caminhos do Firestore: texto curto, sem barra. */
@@ -60,26 +59,21 @@ interface Destinatario {
   aparelhos: Map<string, string>;
 }
 
-/** Aplica as preferências de cada pessoa (RN-NOT-04) e o limite de comentários; devolve os aparelhos. */
+/**
+ * Aplica as preferências de cada pessoa (RN-NOT-04) e devolve os aparelhos. Todo comentário gera push,
+ * sem o antigo limite de 30 minutos (decisão de 19/11/2026, RN-NOT-02).
+ */
 async function prepararDestinatario(db: Firestore, uid: string, evento: EventoDominio): Promise<Destinatario | null> {
   const { ocorrenciaId } = evento.dados;
-  const [usuario, estado, controle, aparelhos] = await Promise.all([
+  const [usuario, estado, aparelhos] = await Promise.all([
     db.doc(`users/${uid}`).get(),
     db.doc(`users/${uid}/occurrenceState/${ocorrenciaId}`).get(),
-    db.doc(`pushControle/${uid}_${ocorrenciaId}`).get(),
     db.collection(`users/${uid}/devices`).where('enabled', '==', true).get(),
   ]);
 
   // Desligou todas as notificações no perfil, ou silenciou esta ocorrência.
   if (usuario.get('notificationsEnabled') === false) return null;
   if (estado.get('muted') === true) return null;
-
-  if (evento.tipo === 'ocorrencia.comentario_criado') {
-    const ultimo: unknown = controle.get('ultimoComentarioEm');
-    if (typeof ultimo === 'string' && Date.now() - new Date(ultimo).getTime() < INTERVALO_COMENTARIOS_MS) {
-      return null;
-    }
-  }
 
   const tokens = new Map<string, string>();
   for (const item of aparelhos.docs) {
@@ -90,8 +84,7 @@ async function prepararDestinatario(db: Firestore, uid: string, evento: EventoDo
 }
 
 /**
- * Processa um evento do domínio: descarta repetidos (`eventId`), aplica preferências e o limite
- * de comentários, envia pelo Expo Push e desativa tokens inválidos. Os destinatários vêm
+ * Processa um evento do domínio: descarta repetidos (`eventId`), aplica preferências, envia pelo Expo Push e desativa tokens inválidos. Os destinatários vêm
  * calculados pelo domínio (autor, afetados e apoiadores, sem quem fez a ação).
  */
 export async function processarEvento(evento: EventoDominio): Promise<ResultadoEvento> {
@@ -140,13 +133,6 @@ export async function processarEvento(evento: EventoDominio): Promise<ResultadoE
     for (const token of invalidos) {
       const caminho = caminhoPorToken.get(token);
       if (caminho) lote.update(db.doc(caminho), { enabled: false, updatedAt: agora });
-    }
-    if (evento.tipo === 'ocorrencia.comentario_criado') {
-      for (const destinatario of destinatarios) {
-        lote.set(db.doc(`pushControle/${destinatario.uid}_${evento.dados.ocorrenciaId}`), {
-          ultimoComentarioEm: agora,
-        });
-      }
     }
     await lote.commit();
 

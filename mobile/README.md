@@ -216,7 +216,7 @@ Funcionam só no **APK / development build** e só no Android.
 | Token | O app obtém o **Expo push token** e grava em `users/{uid}/devices/{deviceId}` (`token`, `plataforma`, `enabled`, `updatedAt`). É regravado na abertura, no login e quando o token muda; no logout o aparelho é desativado. |
 | Sem permissão ou sem token | O Perfil explica o motivo (permissão negada, ou aparelho sem Google Play Services/sem rede). Nada trava. |
 | Envio | Nasce no domínio: comentário, conclusão, reabertura ou desvio confirmado vira um evento, que o domínio envia ao BFF. O app não participa. |
-| Quem recebe | Calculado no servidor: autor, afetados e apoiadores, menos quem fez a ação, quem silenciou a ocorrência e quem desligou as notificações (RN-NOT-02, RN-NOT-04). Comentários: no máximo 1 push por ocorrência a cada 30 minutos. |
+| Quem recebe | Calculado no servidor: autor, afetados e apoiadores, menos quem fez a ação, quem silenciou a ocorrência e quem desligou as notificações (RN-NOT-02, RN-NOT-04). Todo comentário notifica. Canal Android `ocorrencias-alerta`, de alta prioridade, com som e vibração, inclusive com o app aberto. |
 | Toque | Abre a ocorrência (`occurrenceId` no payload, RN-NOT-05). |
 
 ### Configuração no Android (FCM)

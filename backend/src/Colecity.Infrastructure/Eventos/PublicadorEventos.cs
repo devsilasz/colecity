@@ -59,7 +59,7 @@ public class LogEnvioEventosBff(ILogger<LogEnvioEventosBff> logger) : IEnvioEven
 }
 
 /// <summary>
-/// Lê o outbox a cada 10 s, calcula os destinatários (autor, afetados e apoiadores, sem quem causou o evento)
+/// Lê o outbox a cada 2 s, calcula os destinatários (autor, afetados e apoiadores, sem quem causou o evento)
 /// e envia ao BFF. Entrega "pelo menos uma vez": o <c>eventId</c> permite ao BFF descartar repetidos.
 /// </summary>
 public class PublicadorEventosTarefa(
@@ -69,7 +69,7 @@ public class PublicadorEventosTarefa(
 {
     private const int LoteMaximo = 20;
 
-    public TimeSpan Intervalo => TimeSpan.FromSeconds(10);
+    public TimeSpan Intervalo => TimeSpan.FromSeconds(2);
 
     public async Task ExecutarAsync(CancellationToken ct)
     {

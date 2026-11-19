@@ -83,7 +83,7 @@ Funções serverless (`@vercel/node`) com rewrites no `vercel.json`:
 - **Recadastro automático:** se o domínio responder `403 USUARIO_NAO_CADASTRADO` (primeiro acesso, ou banco do Render recriado), o BFF cadastra o usuário (`PUT /usuarios/me`, com o e-mail do token e o aceite guardado em `bffUsuarios/{uid}`) e repete a chamada uma vez (RN-CON-01, RN-CON-11). Depois de `DELETE /usuarios/me`, o registro é apagado e a conta não é recadastrada.
 - Não reimplementa regras: modelos, paginação, `Idempotency-Key` e erros do domínio passam sem alteração.
 - As rotas de moderação (`/admin`) não são expostas ao app.
-- **Push:** os destinatários vêm calculados pelo domínio. O BFF remove quem desligou as notificações ou silenciou a ocorrência, aplica o limite de 1 push de comentário por ocorrência a cada 30 minutos por pessoa (RN-NOT-02, RN-NOT-04), evita repetição pelo `eventId` e desativa tokens recusados (`DeviceNotRegistered`).
+- **Push:** os destinatários vêm calculados pelo domínio. O BFF remove quem desligou as notificações ou silenciou a ocorrência, envia todo comentário, sem limite de tempo (RN-NOT-02, RN-NOT-04), evita repetição pelo `eventId` e desativa tokens recusados (`DeviceNotRegistered`).
 - O texto do push usa só o título público da ocorrência. O payload leva `occurrenceId`.
 - **Rate limit (RN-GER-12):** fica no domínio. Funções serverless não guardam estado entre execuções, então um limite em memória no BFF não seria confiável.
 - Detalhes das rotas em [`bff/README.md`](../bff/README.md).
@@ -138,7 +138,7 @@ Configurações do Firebase Auth exigidas pelas regras:
 
 ## 5. Eventos do domínio → BFF (push)
 
-O domínio grava o evento na tabela de outbox, **na mesma transação** da operação. Uma tarefa em segundo plano envia os pendentes a cada 10 s, com até 3 tentativas.
+O domínio grava o evento na tabela de outbox, **na mesma transação** da operação. Uma tarefa em segundo plano envia os pendentes a cada 2 s, com até 3 tentativas.
 
 ```mermaid
 sequenceDiagram
@@ -151,11 +151,11 @@ sequenceDiagram
     participant A as Usuário A (app)
     B->>API: comenta (via BFF)
     API->>API: salva comentário + MensagemOutbox (mesma transação)
-    loop a cada 10 s
+    loop a cada 2 s
         API->>BFF: POST /eventos-dominio (X-Service-Key)
     end
     BFF->>FS: cria eventosProcessados/{eventId} (descarta repetidos)
-    BFF->>FS: lê users/{uid}, occurrenceState, pushControle, devices
+    BFF->>FS: lê users/{uid}, occurrenceState, devices
     BFF->>Expo: envia aos aparelhos ativos
     Expo-->>A: "Novo comentário"
     BFF-->>API: 200 { enviado, motivo? (DUPLICADO, SEM_DESTINATARIOS…) }
@@ -233,7 +233,6 @@ users/{uid}/devices/{deviceId}
 
 bffUsuarios/{uid}                        (só o BFF, Admin SDK)
 eventosProcessados/{eventId}             (só o BFF)
-pushControle/{uid}_{ocorrenciaId}        (só o BFF)
 ```
 
 Regras de segurança versionadas em [`mobile/firestore.rules`](../mobile/firestore.rules):
@@ -258,7 +257,7 @@ Tarefas em segundo plano:
 
 | Tarefa | Intervalo | O que faz |
 |---|---|---|
-| `PublicadorEventosTarefa` | 10 s | Envia o outbox ao BFF (até 3 tentativas) |
+| `PublicadorEventosTarefa` | 2 s | Envia o outbox ao BFF (até 3 tentativas) |
 | `ZonasAtencaoTarefa` | 5 min | Recalcula as Zonas de atenção (RN-ZON) |
 | `GeocodificacaoPendenteTarefa` | 5 min | Completa os títulos com o endereço (Nominatim) |
 | `EncerramentoAutomaticoTarefa` | 1 h | Conclui ocorrências inativas (RN-ACO-06, RN-ACO-09) |

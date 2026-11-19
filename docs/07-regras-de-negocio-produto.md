@@ -186,7 +186,7 @@ Módulo independente: nenhum outro módulo depende dele.
 | Código | Regra |
 |---|---|
 | RN-NOT-01 | A permissão de notificação é pedida após o primeiro registro ou participação, não na abertura do app. |
-| RN-NOT-02 | Autores, afetados e apoiadores de uma ocorrência são notificados quando: o estado muda (concluída, reaberta); há novos comentários (no máximo 1 notificação por ocorrência a cada 30 minutos, agrupada); um desvio de rota é confirmado em linha com ocorrência deles. |
+| RN-NOT-02 | Autores, afetados e apoiadores de uma ocorrência são notificados quando: o estado muda (concluída, reaberta); há um novo comentário (todo comentário gera notificação, sem limite de tempo — decisão de 19/11/2026); um desvio de rota é confirmado em linha com ocorrência deles. As notificações chegam com som, vibração e aviso na tela (canal Android de alta prioridade). |
 | RN-NOT-03 | Não há notificação de Zona de atenção (exigiria localização em segundo plano). |
 | RN-NOT-04 | O usuário pode silenciar uma ocorrência ou desligar todas as notificações no perfil. |
 | RN-NOT-05 | Tocar na notificação abre a ocorrência (deep link). |

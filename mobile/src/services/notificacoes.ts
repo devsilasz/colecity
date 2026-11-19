@@ -31,8 +31,11 @@ export type EstadoPush =
 
 type ModuloNotificacoes = typeof import('expo-notifications');
 
-/** Canal do Android; o mesmo nome é usado pelo BFF. */
-export const CANAL_OCORRENCIAS = 'ocorrencias';
+/**
+ * Canal do Android; o mesmo nome é usado pelo BFF. Alta prioridade, com som, vibração e aviso na tela.
+ * O Android não deixa aumentar a importância de um canal já criado, por isso o nome novo.
+ */
+export const CANAL_OCORRENCIAS = 'ocorrencias-alerta';
 const CHAVE_APARELHO = '@colecity/push/deviceId';
 
 const disponivel = env.recursos.push && env.fonteDados === 'bff';
@@ -101,15 +104,21 @@ export const notificacoes = {
         handleNotification: async () => ({
           shouldShowBanner: true,
           shouldShowList: true,
-          shouldPlaySound: false,
+          shouldPlaySound: true,
           shouldSetBadge: false,
         }),
       });
       await Notifications.setNotificationChannelAsync(CANAL_OCORRENCIAS, {
         name: 'Ocorrências',
         description: 'Novidades nas ocorrências que você registrou, afetam você ou apoia.',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: Notifications.AndroidImportance.MAX,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        enableVibrate: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
+      // O canal antigo (importância padrão, sem aviso na tela) deixa de ser usado.
+      await Notifications.deleteNotificationChannelAsync('ocorrencias').catch(() => undefined);
     } catch {
       // Push é opcional: uma falha aqui nunca pode derrubar o app.
       definirEstado('INDISPONIVEL');

@@ -244,8 +244,7 @@ Após registrar: online, abre o detalhe da ocorrência criada; offline, o regist
 - **Variáveis:** `mobile/.env` deixou de ser versionado (o `.gitignore` ignora `.env` e `.env.*`, menos `.env.example`). A chave do Maps é `API_KEY_MAPS` (antes `GOOGLE_MAPS_ANDROID_API_KEY`), lida no `app.config.ts` para `android.config.googleMaps.apiKey`; no EAS ela é cadastrada com `eas env:create`.
 - **Push no app:** `src/services/notificacoes.ts` e `src/hooks/useNotificacoesPush.ts`. O `expo-notifications` é carregado sob demanda, só no Android fora do Expo Go e com a fonte `bff`; nos demais casos tudo vira "não faz nada". Permissão pedida após o primeiro registro ou participação (RN-NOT-01); Expo push token gravado em `users/{uid}/devices/{deviceId}`; aparelho desativado no logout e apagado na exclusão da conta; toque abre `/explorar/[id]`; o Perfil explica permissão negada e aparelho sem token.
 - **Aviso de eventos (até 18/11/2026):** o app chamava `POST /notificar` da API de push depois de comentar, concluir ou reabrir. Desde a integração com o BFF, o push nasce no domínio (outbox → `POST /eventos-dominio` do BFF) e o app só registra o aparelho.
-- **Regras do Firestore:** `devices` só o dono; `eventosProcessados` e `pushControle` fechados para qualquer cliente.
-- **Fora do escopo:** agrupamento posterior dos comentários que caem no limite de 30 minutos.
+- **Regras do Firestore:** `devices` só o dono; as coleções do BFF (`eventosProcessados`, `bffUsuarios`) fechadas para qualquer cliente.
 
 ## Nota — login com Google (17/11/2026)
 

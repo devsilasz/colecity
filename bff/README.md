@@ -104,7 +104,7 @@ sequenceDiagram
     alt já existia
         BFF-->>API: 200 { enviado: false, motivo: DUPLICADO }
     else novo
-        BFF->>FS: users/{uid}, occurrenceState, pushControle, devices
+        BFF->>FS: users/{uid}, occurrenceState, devices
         BFF->>Expo: envia aos aparelhos ativos
         BFF-->>API: 200 { enviado, destinatarios, aparelhos }
     end
@@ -113,7 +113,7 @@ sequenceDiagram
 1. Confere a credencial de serviço (comparação em tempo constante).
 2. Descarta repetidos: grava `eventosProcessados/{eventId}`; se já existe, responde `DUPLICADO`. Se o envio falhar, a marca é apagada para a nova tentativa do domínio.
 3. Os destinatários vêm calculados pelo domínio (autor, afetados e apoiadores, sem quem fez a ação). Para cada um, o BFF lê `users/{uid}` no Firestore e remove quem desligou as notificações ou silenciou a ocorrência (`occurrenceState/{id}.muted`).
-4. Comentários: no máximo 1 push por ocorrência a cada 30 minutos por destinatário (`pushControle/{uid}_{ocorrenciaId}`).
+4. Todo comentário gera push, sem limite de tempo (RN-NOT-02). O canal do Android é `ocorrencias-alerta`, de alta prioridade, com som.
 5. Envia pelo Expo Push Service para os tokens em `users/{uid}/devices` com `enabled: true`; tokens recusados (`DeviceNotRegistered`) são desativados.
 
 | `tipo` | Título | Corpo |

@@ -117,8 +117,6 @@ export const notificacoes = {
         enableVibrate: true,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
-      // O canal antigo (importância padrão, sem aviso na tela) deixa de ser usado.
-      await Notifications.deleteNotificationChannelAsync('ocorrencias').catch(() => undefined);
     } catch {
       // Push é opcional: uma falha aqui nunca pode derrubar o app.
       definirEstado('INDISPONIVEL');
@@ -154,6 +152,8 @@ export const notificacoes = {
       await setDoc(doc(db, 'users', uid, 'devices', await idDoAparelho()), {
         token,
         plataforma: 'android',
+        // O BFF envia para este canal; aparelhos sem o campo (APK antigo) recebem no canal antigo.
+        canal: CANAL_OCORRENCIAS,
         enabled: true,
         updatedAt: new Date().toISOString(),
       });

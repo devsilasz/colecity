@@ -7,8 +7,12 @@ import { textoDaNotificacao } from './textos.js';
 import { TIPOS_EVENTO, type DeviceDoc, type EventoDominio, type ResultadoEvento, type TipoEvento } from './tipos.js';
 
 /** Canal de notificação criado pelo app no Android. */
-/** Mesmo canal criado pelo app (`notificacoes.ts`): alta prioridade, com som e vibração. */
-const CANAL_ANDROID = 'ocorrencias-alerta';
+/**
+ * Canal do Android usado quando o aparelho não informa o seu (APK anterior a 19/11/2026, que só tem
+ * este canal). As versões novas gravam `canal` no aparelho (`ocorrencias-alerta`, com som). Enviar para
+ * um canal que não existe no aparelho faz o Android descartar a notificação.
+ */
+const CANAL_PADRAO = 'ocorrencias';
 const MAX_DESTINATARIOS = 500;
 
 /** Ids viram parte de caminhos do Firestore: texto curto, sem barra. */
@@ -55,8 +59,8 @@ function jaExiste(erro: unknown): boolean {
 
 interface Destinatario {
   uid: string;
-  /** Token → caminho do documento do aparelho (para desativar tokens inválidos). */
-  aparelhos: Map<string, string>;
+  /** Token → documento do aparelho (para desativar tokens inválidos) e canal do Android. */
+  aparelhos: Map<string, { caminho: string; canal: string }>;
 }
 
 /**
@@ -75,10 +79,13 @@ async function prepararDestinatario(db: Firestore, uid: string, evento: EventoDo
   if (usuario.get('notificationsEnabled') === false) return null;
   if (estado.get('muted') === true) return null;
 
-  const tokens = new Map<string, string>();
+  const tokens = new Map<string, { caminho: string; canal: string }>();
   for (const item of aparelhos.docs) {
     const aparelho = item.data() as DeviceDoc;
-    if (typeof aparelho.token === 'string' && ehTokenExpo(aparelho.token)) tokens.set(aparelho.token, item.ref.path);
+    if (typeof aparelho.token === 'string' && ehTokenExpo(aparelho.token)) {
+      const canal = typeof aparelho.canal === 'string' && aparelho.canal ? aparelho.canal : CANAL_PADRAO;
+      tokens.set(aparelho.token, { caminho: item.ref.path, canal });
+    }
   }
   return tokens.size > 0 ? { uid, aparelhos: tokens } : null;
 }
@@ -112,20 +119,21 @@ export async function processarEvento(evento: EventoDominio): Promise<ResultadoE
     const caminhoPorToken = new Map<string, string>();
     const mensagens: MensagemPush[] = [];
     for (const destinatario of destinatarios) {
-      for (const [token, caminho] of destinatario.aparelhos) {
+      for (const [token, { caminho, canal }] of destinatario.aparelhos) {
         caminhoPorToken.set(token, caminho);
         mensagens.push({
           to: token,
           title: texto.titulo,
           body: texto.corpo,
           data: { occurrenceId: evento.dados.ocorrenciaId },
-          channelId: CANAL_ANDROID,
+          channelId: canal,
           sound: 'default',
           priority: 'high',
         });
       }
     }
 
+    console.info('Canais usados:', [...new Set(mensagens.map((m) => m.channelId))].join(', '));
     const { invalidos, erros } = await enviarPush(mensagens);
 
     const lote = db.batch();

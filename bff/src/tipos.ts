@@ -41,4 +41,6 @@ export interface DeviceDoc {
   plataforma: string;
   enabled: boolean;
   updatedAt: string;
+  /** Canal do Android criado por esta versão do app. Ausente nos aparelhos com APK antigo. */
+  canal?: string;
 }
